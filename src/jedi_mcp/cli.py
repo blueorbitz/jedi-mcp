@@ -289,15 +289,33 @@ def generate(url: str, name: str, rate_limit: float, max_retries: int, timeout: 
     default=None,
     help='Custom database path (default: ~/.jedi-mcp/jedi-mcp.db)'
 )
-def serve(project: str, db_path: Path):
+@click.option(
+    '--transport',
+    type=click.Choice(['stdio', 'sse'], case_sensitive=False),
+    default='stdio',
+    help='Transport type: stdio (default) or sse for HTTP/SSE'
+)
+@click.option(
+    '--host',
+    default='localhost',
+    help='Host to bind to for SSE transport (default: localhost)'
+)
+@click.option(
+    '--port',
+    type=int,
+    default=8000,
+    help='Port to bind to for SSE transport (default: 8000)'
+)
+def serve(project: str, db_path: Path, transport: str, host: str, port: int):
     """
     Run the MCP server for a documentation project.
     
     This command starts an MCP server that exposes the documentation
     content as tools that AI coding assistants can use.
     
-    Example:
+    Examples:
         jedi-mcp serve --project example-docs
+        jedi-mcp serve --project example-docs --transport sse --port 8000
     """
     # Set default database path if not provided
     if db_path is None:
@@ -329,6 +347,15 @@ def serve(project: str, db_path: Path):
         click.echo(f"🚀 Starting MCP server for project '{project}'")
         click.echo(f"📁 Database: {db_path}")
         click.echo(f"🔧 Loaded {len(content_groups)} content groups")
+        click.echo(f"🚦 Transport: {transport}")
+        
+        if transport == 'sse':
+            click.echo(f"🌐 Server URL: http://{host}:{port}")
+            click.echo()
+            click.echo("Connect to this server using:")
+            click.echo(f"  - MCP Inspector: npx @modelcontextprotocol/inspector")
+            click.echo(f"  - Then connect to: http://{host}:{port}/sse")
+        
         click.echo()
         click.echo("Server is running. Press Ctrl+C to stop.")
         click.echo()
@@ -342,7 +369,7 @@ def serve(project: str, db_path: Path):
         signal.signal(signal.SIGTERM, signal_handler)
         
         # Run the MCP server
-        run_mcp_server(project, db_path)
+        run_mcp_server(project, db_path, transport=transport, host=host, port=port)
         
     except Exception as e:
         logger.error(f"Failed to start MCP server: {e}", exc_info=True)

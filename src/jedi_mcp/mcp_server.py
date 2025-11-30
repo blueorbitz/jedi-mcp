@@ -190,26 +190,38 @@ def create_mcp_server(
 
 def run_mcp_server(
     project_name: str,
-    db_path: Optional[Path] = None
+    db_path: Optional[Path] = None,
+    transport: str = "stdio",
+    host: str = "localhost",
+    port: int = 8000
 ) -> None:
     """
     Run the MCP server for a documentation project.
     
     This is a convenience function that creates and runs the MCP server
-    using stdio transport.
+    using the specified transport.
     
     Args:
         project_name: Name of the documentation project
         db_path: Path to database file (optional, uses default if not provided)
+        transport: Transport type - "stdio" or "sse" (default: "stdio")
+        host: Host to bind to for SSE transport (default: "localhost")
+        port: Port to bind to for SSE transport (default: 8000)
     """
     try:
         logger.info(f"Starting MCP server for project: {project_name}")
+        logger.info(f"Transport: {transport}")
         
         # Create server
         mcp = create_mcp_server(project_name, db_path=db_path)
         
-        # Run server with stdio transport (FastMCP handles this automatically)
-        mcp.run()
+        # Run server with specified transport
+        if transport == "sse":
+            logger.info(f"Starting SSE server on {host}:{port}")
+            mcp.run(transport="sse", host=host, port=port)
+        else:
+            logger.info("Starting stdio server")
+            mcp.run()
             
     except Exception as e:
         logger.error(f"Failed to run MCP server: {str(e)}", exc_info=True)

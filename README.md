@@ -69,8 +69,30 @@ jedi-mcp generate --url https://docs.example.com --name example-docs
 
 ### Run the MCP Server
 
+**Stdio transport (for MCP clients like Kiro):**
 ```bash
 jedi-mcp serve --project example-docs
+```
+
+**SSE transport (for HTTP/localhost access and MCP Inspector):**
+```bash
+jedi-mcp serve --project example-docs --transport sse --port 8000
+```
+
+The server will be available at `http://localhost:8000/sse`
+
+### Connect with MCP Inspector
+
+To debug and test your MCP server:
+
+```bash
+# Start your server with SSE transport
+jedi-mcp serve --project example-docs --transport sse --port 8000
+
+# In another terminal, open MCP Inspector
+npx @modelcontextprotocol/inspector
+
+# Then connect to: http://localhost:8000/sse
 ```
 
 ## Requirements
