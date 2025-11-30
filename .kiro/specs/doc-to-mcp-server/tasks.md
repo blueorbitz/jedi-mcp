@@ -13,15 +13,25 @@
   - Create src/jedi_mcp package structure with __init__.py
   - _Requirements: 8.1, 8.2, 8.3, 8.4_
 
-- [ ] 2. Implement data models and database schema
-  - [ ] 2.1 Create data models in models.py
+- [x] 2. Implement data models and database schema
+
+
+
+
+
+
+
+  - [x] 2.1 Create data models in models.py
+
     - Define DocumentationLink dataclass with url, title, category fields
     - Define PageContent dataclass with url, title, content, code_blocks fields
     - Define ContentGroup dataclass with name, summary_markdown, pages fields
     - Define CrawlConfig dataclass with rate_limit_delay, max_retries, timeout, custom_headers fields
+
     - Define GenerationResult dataclass for CLI output
     - _Requirements: 5.1, 5.4_
-  - [ ] 2.2 Implement DatabaseManager class in database.py
+  - [x] 2.2 Implement DatabaseManager class in database.py
+
     - Create initialize_schema method to create tables (projects, content_groups, pages)
     - Add indexes for project_id and content_group_id
     - Implement store_content_group method with transaction support
