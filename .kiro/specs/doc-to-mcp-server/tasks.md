@@ -49,8 +49,15 @@
     - **Property 12: Markdown formatting in storage**
     - **Validates: Requirements 5.3**
 
-- [ ] 3. Implement HTML content extraction and crawling
-  - [ ] 3.1 Create Documentation Crawler in crawler.py
+- [x] 3. Implement HTML content extraction and crawling
+
+
+
+
+
+  - [x] 3.1 Create Documentation Crawler in crawler.py
+
+
     - Implement crawl_pages function with httpx async client
     - Add retry decorator with max 3 retries and exponential backoff
     - Implement rate limiting using asyncio.sleep
@@ -183,3 +190,5 @@
   - Document configuration options
   - Add example MCP server connection in Kiro/Cursor/Copilot
   - Create CONTRIBUTING.md for development setup
+
+- [ ] 12. Clean up all the temporary test file
