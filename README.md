@@ -13,6 +13,7 @@ Jedi-MCP is a Python CLI tool that transforms technical documentation websites i
 - **Intelligent Grouping**: Groups related documentation pages using AI
 - **Detailed Summaries**: Generates comprehensive markdown summaries with code examples and API signatures
 - **MCP Server Generation**: Exposes each content group as an MCP tool for AI coding assistants
+- **Multiple Transport Options**: Supports both stdio (for MCP clients) and SSE (for HTTP/Inspector access)
 
 ## Installation
 
@@ -94,6 +95,40 @@ npx @modelcontextprotocol/inspector
 
 # Then connect to: http://localhost:8000/sse
 ```
+
+### Configure in Kiro IDE
+
+To use with Kiro, add to `.kiro/settings/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "jedi-mcp": {
+      "command": "jedi-mcp",
+      "args": ["serve", "--project", "example-docs"],
+      "disabled": false,
+      "autoApprove": []
+    }
+  }
+}
+```
+
+### Command Options
+
+**Generate command:**
+- `--url`: Documentation website URL (required)
+- `--name`: Project name (required)
+- `--rate-limit`: Delay between requests in seconds (default: 0.5)
+- `--max-retries`: Maximum retries for failed requests (default: 3)
+- `--timeout`: Request timeout in seconds (default: 30)
+- `--db-path`: Custom database path (default: ~/.jedi-mcp/jedi-mcp.db)
+
+**Serve command:**
+- `--project`: Project name to serve (required)
+- `--transport`: Transport type - `stdio` or `sse` (default: stdio)
+- `--host`: Host to bind for SSE transport (default: localhost)
+- `--port`: Port for SSE transport (default: 8000)
+- `--db-path`: Custom database path (default: ~/.jedi-mcp/jedi-mcp.db)
 
 ## Requirements
 
