@@ -82,19 +82,52 @@ jedi-mcp serve --project example-docs --transport sse --port 8000
 
 The server will be available at `http://localhost:8000/sse`
 
-### Connect with MCP Inspector
+## Testing with MCP Inspector
 
-To debug and test your MCP server:
+The MCP Inspector is a web-based tool for testing and debugging your MCP server. It lets you explore available tools, test them with different inputs, and see the responses.
+
+### Method 1: Direct Connection (Recommended)
+
+Start your server with SSE transport and connect via browser:
 
 ```bash
-# Start your server with SSE transport
+# Terminal 1: Start the MCP server with SSE transport
 jedi-mcp serve --project example-docs --transport sse --port 8000
 
-# In another terminal, open MCP Inspector
+# Terminal 2: Launch MCP Inspector
 npx @modelcontextprotocol/inspector
-
-# Then connect to: http://localhost:8000/sse
 ```
+
+Then in the Inspector web interface:
+1. Open your browser to `http://localhost:5173` (or the URL shown by the inspector)
+2. Click "Connect to Server"
+3. Enter the server URL: `http://localhost:8000/sse`
+4. Click "Connect"
+
+### Method 2: Inspector Auto-Launch
+
+Let the Inspector launch your server automatically:
+
+```bash
+npx @modelcontextprotocol/inspector jedi-mcp serve --project example-docs
+```
+
+This will start both the Inspector and your server, connecting them automatically.
+
+### Using the Inspector
+
+Once connected, you can:
+- **View Tools**: See all available documentation tools (one per content group)
+- **Test Tools**: Click any tool to invoke it and see the markdown documentation
+- **Inspect Responses**: View the full markdown content returned by each tool
+- **Debug Issues**: Check connection status and error messages
+
+Example workflow:
+1. Connect to your server using one of the methods above
+2. Browse the list of available tools (e.g., `getting_started`, `api_reference`, etc.)
+3. Click a tool name to invoke it
+4. Review the returned markdown documentation
+5. Test different tools to verify all content groups are accessible
 
 ### Configure in Kiro IDE
 
