@@ -28,6 +28,35 @@ cd jedi-mcp
 uv venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 uv pip install -e ".[dev]"
+
+# Install Gemini support (required for AI-powered navigation extraction)
+uv pip install 'strands-agents[gemini]'
+```
+
+## Configuration
+
+### Google Gemini API Key
+
+Jedi-MCP uses Google Gemini for AI-powered navigation extraction. You need to set up your API key:
+
+1. Get your API key from [Google AI Studio](https://aistudio.google.com/app/apikey)
+2. Set the environment variable:
+
+```bash
+# On Linux/Mac
+export GOOGLE_API_KEY="your-api-key-here"
+
+# On Windows (PowerShell)
+$env:GOOGLE_API_KEY="your-api-key-here"
+
+# On Windows (CMD)
+set GOOGLE_API_KEY=your-api-key-here
+```
+
+Alternatively, create a `.env` file in the project root:
+
+```
+GOOGLE_API_KEY=your-api-key-here
 ```
 
 ## Usage

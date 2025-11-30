@@ -1,9 +1,11 @@
 """Navigation extraction using AI to identify documentation links."""
 
+import os
 from typing import List
 from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
 from strands import Agent
+from strands.models.gemini import GeminiModel
 
 from .models import DocumentationLink
 
@@ -40,8 +42,22 @@ def extract_navigation_links(html_content: str, base_url: str) -> List[Documenta
         # Fallback: use all links if no navigation found
         nav_html = str(soup)
     
+    # Configure Gemini model
+    gemini_model = GeminiModel(
+        client_args={
+            "api_key": os.environ.get("GOOGLE_API_KEY"),
+        },
+        model_id="gemini-2.5-flash",
+        params={
+            "temperature": 0.3,
+            "max_output_tokens": 4096,
+            "top_p": 0.9,
+        }
+    )
+    
     # Create AI agent to analyze navigation
     agent = Agent(
+        model=gemini_model,
         name="navigation_extractor",
         instructions="""You are a documentation navigation analyzer. Your task is to:
 1. Identify links that are part of documentation navigation (nav, sidebar, menu, table of contents)
