@@ -6,8 +6,12 @@ from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
 from strands import Agent
 from strands.models.gemini import GeminiModel
+from dotenv import load_dotenv
 
 from .models import DocumentationLink
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 def extract_navigation_links(html_content: str, base_url: str) -> List[DocumentationLink]:
@@ -58,8 +62,7 @@ def extract_navigation_links(html_content: str, base_url: str) -> List[Documenta
     # Create AI agent to analyze navigation
     agent = Agent(
         model=gemini_model,
-        name="navigation_extractor",
-        instructions="""You are a documentation navigation analyzer. Your task is to:
+        system_prompt="""You are a documentation navigation analyzer. Your task is to:
 1. Identify links that are part of documentation navigation (nav, sidebar, menu, table of contents)
 2. Extract the URL and title for each documentation link
 3. Categorize links based on their section or grouping in the navigation
@@ -91,7 +94,7 @@ HTML:
 
 Return only the JSON array of documentation links."""
     
-    response = agent.run(prompt)
+    response = agent(prompt)
     
     # Parse agent response
     import json

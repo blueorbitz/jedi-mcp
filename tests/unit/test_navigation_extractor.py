@@ -23,7 +23,7 @@ def test_extract_navigation_links_filters_external_links():
     # Mock the Agent to return a simple list
     with patch('jedi_mcp.navigation_extractor.Agent') as MockAgent:
         mock_agent_instance = Mock()
-        mock_agent_instance.run.return_value = """
+        mock_agent_instance.return_value = """
         [
             {"url": "/docs/intro", "title": "Introduction", "category": null},
             {"url": "https://example.com/docs/guide", "title": "Guide", "category": null},
@@ -55,7 +55,7 @@ def test_extract_navigation_links_filters_non_documentation():
     
     with patch('jedi_mcp.navigation_extractor.Agent') as MockAgent:
         mock_agent_instance = Mock()
-        mock_agent_instance.run.return_value = """
+        mock_agent_instance.return_value = """
         [
             {"url": "/docs/intro", "title": "Introduction", "category": null},
             {"url": "/login", "title": "Login", "category": null},
@@ -86,7 +86,7 @@ def test_extract_navigation_links_resolves_relative_urls():
     
     with patch('jedi_mcp.navigation_extractor.Agent') as MockAgent:
         mock_agent_instance = Mock()
-        mock_agent_instance.run.return_value = """
+        mock_agent_instance.return_value = """
         [
             {"url": "/docs/intro", "title": "Introduction", "category": null},
             {"url": "guide.html", "title": "Guide", "category": null}
@@ -114,7 +114,7 @@ def test_extract_navigation_links_removes_duplicates():
     
     with patch('jedi_mcp.navigation_extractor.Agent') as MockAgent:
         mock_agent_instance = Mock()
-        mock_agent_instance.run.return_value = """
+        mock_agent_instance.return_value = """
         [
             {"url": "/docs/intro", "title": "Introduction", "category": null},
             {"url": "/docs/intro", "title": "Intro", "category": null}
@@ -163,7 +163,7 @@ def test_extract_navigation_links_with_categories():
     
     with patch('jedi_mcp.navigation_extractor.Agent') as MockAgent:
         mock_agent_instance = Mock()
-        mock_agent_instance.run.return_value = """
+        mock_agent_instance.return_value = """
         [
             {"url": "/docs/intro", "title": "Introduction", "category": "Getting Started"}
         ]
