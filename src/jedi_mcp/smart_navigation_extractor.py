@@ -81,14 +81,16 @@ async def extract_navigation_smart(url: str) -> List[DocumentationLink]:
 def _find_sidebar(soup: BeautifulSoup):
     """Find the main sidebar/navigation element."""
     
-    # Try common sidebar patterns
+    # Try common sidebar patterns with priority order
     patterns = [
-        # Docusaurus pattern
-        {'name': ['aside'], 'class_': lambda x: x and 'sidebar' in str(x).lower()},
-        # Generic sidebar patterns
-        {'name': ['aside', 'nav'], 'class_': lambda x: x and any(
+        # Material for MkDocs pattern (div with md-sidebar class)
+        {'name': ['div'], 'class_': lambda x: x and 'md-sidebar' in str(x) and 'primary' in str(x)},
+        # Docusaurus pattern (aside with sidebar class)
+        {'name': ['aside'], 'class_': lambda x: x and 'sidebar' in str(x).lower() and 'banner' not in str(x).lower()},
+        # Generic sidebar patterns (div/nav/aside with sidebar-related classes)
+        {'name': ['div', 'nav', 'aside'], 'class_': lambda x: x and any(
             term in str(x).lower() for term in ['sidebar', 'side-nav', 'sidenav', 'docs-nav', 'doc-nav']
-        )},
+        ) and 'banner' not in str(x).lower()},
         # ID-based patterns
         {'name': ['aside', 'nav', 'div'], 'id': lambda x: x and any(
             term in str(x).lower() for term in ['sidebar', 'navigation', 'nav', 'menu']
@@ -98,10 +100,20 @@ def _find_sidebar(soup: BeautifulSoup):
     for pattern in patterns:
         sidebar = soup.find(**pattern)
         if sidebar:
-            return sidebar
+            # Verify it has a reasonable number of links (at least 5)
+            links = sidebar.find_all('a', href=True)
+            if len(links) >= 5:
+                return sidebar
     
-    # Fallback: find any nav or aside
-    return soup.find(['nav', 'aside'])
+    # Fallback: find any nav or aside (but not banners)
+    for elem in soup.find_all(['nav', 'aside']):
+        classes = ' '.join(elem.get('class', [])).lower()
+        if 'banner' not in classes:
+            links = elem.find_all('a', href=True)
+            if len(links) >= 5:
+                return elem
+    
+    return None
 
 
 def _extract_links_from_sidebar(sidebar, base_url: str) -> List[DocumentationLink]:
@@ -110,6 +122,7 @@ def _extract_links_from_sidebar(sidebar, base_url: str) -> List[DocumentationLin
     
     Handles hierarchical structures like:
     - Docusaurus (nested ul/li with category classes)
+    - Material for MkDocs (md-nav structure)
     - Generic nested lists
     - Flat link lists
     """
@@ -119,6 +132,9 @@ def _extract_links_from_sidebar(sidebar, base_url: str) -> List[DocumentationLin
     # Check if this is a Docusaurus-style sidebar
     if _is_docusaurus_sidebar(sidebar):
         links = _extract_docusaurus_links(sidebar, base_url, base_domain)
+    # Check if this is a Material for MkDocs sidebar
+    elif _is_material_mkdocs_sidebar(sidebar):
+        links = _extract_material_mkdocs_links(sidebar, base_url, base_domain)
     else:
         # Generic extraction
         links = _extract_generic_links(sidebar, base_url, base_domain)
@@ -138,6 +154,78 @@ def _is_docusaurus_sidebar(sidebar) -> bool:
     """Check if this is a Docusaurus-style sidebar."""
     # Docusaurus uses specific class names
     return bool(sidebar.find(class_=lambda x: x and 'theme-doc-sidebar' in str(x)))
+
+
+def _is_material_mkdocs_sidebar(sidebar) -> bool:
+    """Check if this is a Material for MkDocs sidebar."""
+    # Material for MkDocs uses md-sidebar and md-nav classes
+    classes = ' '.join(sidebar.get('class', []))
+    return 'md-sidebar' in classes or bool(sidebar.find(class_=lambda x: x and 'md-nav' in str(x)))
+
+
+def _extract_material_mkdocs_links(sidebar, base_url: str, base_domain: str) -> List[DocumentationLink]:
+    """Extract links from Material for MkDocs sidebar."""
+    links = []
+    
+    # Find the main navigation
+    nav = sidebar.find('nav', class_='md-nav')
+    if not nav:
+        return links
+    
+    # Find all top-level list items
+    ul = nav.find('ul', class_='md-nav__list')
+    if not ul:
+        return links
+    
+    def extract_from_nav_item(item, parent_category=None):
+        """Recursively extract links from a nav item."""
+        item_links = []
+        
+        # Check if this is a nested item (has children)
+        is_nested = 'md-nav__item--nested' in ' '.join(item.get('class', []))
+        
+        if is_nested:
+            # Get the category name from the link or label
+            category_link = item.find('a', class_='md-nav__link', recursive=False)
+            if not category_link:
+                # Try to find it in the container
+                container = item.find('div', class_='md-nav__link')
+                if container:
+                    category_link = container.find('a', class_='md-nav__link')
+            
+            category_name = None
+            if category_link:
+                category_name = category_link.get_text(strip=True)
+                # Add the category link itself
+                doc_link = _create_doc_link(category_link, base_url, base_domain, parent_category)
+                if doc_link:
+                    item_links.append(doc_link)
+            
+            # Find nested navigation
+            nested_nav = item.find('nav', class_='md-nav')
+            if nested_nav:
+                # Find the nested ul inside the nav
+                nested_ul = nested_nav.find('ul', class_='md-nav__list')
+                if nested_ul:
+                    nested_items = nested_ul.find_all('li', class_='md-nav__item', recursive=False)
+                    for nested_item in nested_items:
+                        item_links.extend(extract_from_nav_item(nested_item, category_name or parent_category))
+        else:
+            # This is a regular link item
+            link = item.find('a', class_='md-nav__link', recursive=False)
+            if link:
+                doc_link = _create_doc_link(link, base_url, base_domain, parent_category)
+                if doc_link:
+                    item_links.append(doc_link)
+        
+        return item_links
+    
+    # Process all top-level items
+    top_level_items = ul.find_all('li', class_='md-nav__item', recursive=False)
+    for item in top_level_items:
+        links.extend(extract_from_nav_item(item))
+    
+    return links
 
 
 def _extract_docusaurus_links(sidebar, base_url: str, base_domain: str) -> List[DocumentationLink]:
