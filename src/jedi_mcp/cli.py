@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 
 import click
 import httpx
+from bs4 import BeautifulSoup
 
 from .models import CrawlConfig, GenerationResult
 from .database import DatabaseManager
@@ -60,6 +61,180 @@ def validate_project_name(name: str) -> bool:
     return bool(re.match(pattern, name))
 
 
+def _display_links_table(links: list, start_idx: int = 0, count: int = 20):
+    """Display links in a formatted table."""
+    click.echo()
+    click.echo("=" * 120)
+    click.echo(f"{'Index':<8} {'Title':<40} {'Category':<25} {'URL':<47}")
+    click.echo("=" * 120)
+    
+    end_idx = min(start_idx + count, len(links))
+    for i in range(start_idx, end_idx):
+        link = links[i]
+        index = f"[{i+1}]"
+        title = (link.title or "No title")[:38]
+        category = (link.category or "Uncategorized")[:23]
+        url = link.url[:45]
+        
+        click.echo(f"{index:<8} {title:<40} {category:<25} {url:<47}")
+    
+    click.echo("=" * 120)
+    click.echo(f"Showing {start_idx+1}-{end_idx} of {len(links)} total links")
+    click.echo()
+
+
+async def _verify_and_filter_links(links: list, html_content: str, base_url: str, config: CrawlConfig) -> list:
+    """
+    Interactive verification and filtering of extracted links.
+    
+    Allows user to:
+    - View links in a table format
+    - Remove specific links by index
+    - Search for additional elements
+    - Proceed with scraping
+    """
+    current_links = links.copy()
+    page = 0
+    page_size = 20
+    
+    while True:
+        # Display current page of links
+        _display_links_table(current_links, page * page_size, page_size)
+        
+        click.echo("Options:")
+        click.echo("  [p] Proceed with scraping these links")
+        click.echo("  [n] Next page")
+        click.echo("  [b] Previous page")
+        click.echo("  [r] Remove links by index (e.g., '1,3,5-10')")
+        click.echo("  [s] Search for additional elements (CSS selector)")
+        click.echo("  [a] Show all links (no pagination)")
+        click.echo("  [c] Cancel generation")
+        click.echo()
+        
+        choice = click.prompt("Your choice", type=str, default="p").lower().strip()
+        
+        if choice == "p":
+            # Proceed with scraping
+            if click.confirm(f"\nProceed with scraping {len(current_links)} links?", default=True):
+                return current_links
+        
+        elif choice == "n":
+            # Next page
+            if (page + 1) * page_size < len(current_links):
+                page += 1
+            else:
+                click.echo("⚠️  Already on last page")
+        
+        elif choice == "b":
+            # Previous page
+            if page > 0:
+                page -= 1
+            else:
+                click.echo("⚠️  Already on first page")
+        
+        elif choice == "r":
+            # Remove links by index
+            click.echo()
+            indices_str = click.prompt("Enter indices to remove (e.g., '1,3,5-10' or 'all')", type=str)
+            
+            if indices_str.lower() == "all":
+                if click.confirm("Remove ALL links? This will cancel the generation.", default=False):
+                    return []
+                continue
+            
+            try:
+                indices_to_remove = set()
+                for part in indices_str.split(','):
+                    part = part.strip()
+                    if '-' in part:
+                        # Range
+                        start, end = part.split('-')
+                        indices_to_remove.update(range(int(start) - 1, int(end)))
+                    else:
+                        # Single index
+                        indices_to_remove.add(int(part) - 1)
+                
+                # Filter out invalid indices
+                valid_indices = {i for i in indices_to_remove if 0 <= i < len(current_links)}
+                
+                if valid_indices:
+                    # Remove links
+                    current_links = [link for i, link in enumerate(current_links) if i not in valid_indices]
+                    click.echo(f"✓ Removed {len(valid_indices)} link(s). {len(current_links)} remaining.")
+                    # Reset to first page
+                    page = 0
+                else:
+                    click.echo("⚠️  No valid indices provided")
+            
+            except ValueError:
+                click.echo("❌ Invalid format. Use comma-separated numbers or ranges (e.g., '1,3,5-10')")
+        
+        elif choice == "s":
+            # Search for additional elements
+            click.echo()
+            click.echo("Enter a CSS selector to find additional links (e.g., 'nav.sidebar a', '.docs-menu a')")
+            selector = click.prompt("CSS selector", type=str)
+            
+            try:
+                soup = BeautifulSoup(html_content, 'lxml')
+                elements = soup.select(selector)
+                
+                if not elements:
+                    click.echo(f"⚠️  No elements found matching selector: {selector}")
+                    continue
+                
+                click.echo(f"✓ Found {len(elements)} elements")
+                
+                # Extract links from elements
+                from .navigation_extractor import _create_doc_link
+                from urllib.parse import urlparse
+                
+                base_domain = urlparse(base_url).netloc
+                new_links = []
+                
+                for elem in elements:
+                    if elem.name == 'a' and elem.get('href'):
+                        doc_link = _create_doc_link(elem, base_url, base_domain, None)
+                        if doc_link:
+                            new_links.append(doc_link)
+                    else:
+                        # Look for links inside the element
+                        for a_tag in elem.find_all('a', href=True):
+                            doc_link = _create_doc_link(a_tag, base_url, base_domain, None)
+                            if doc_link:
+                                new_links.append(doc_link)
+                
+                if new_links:
+                    # Remove duplicates
+                    existing_urls = {link.url for link in current_links}
+                    unique_new_links = [link for link in new_links if link.url not in existing_urls]
+                    
+                    if unique_new_links:
+                        current_links.extend(unique_new_links)
+                        click.echo(f"✓ Added {len(unique_new_links)} new link(s). Total: {len(current_links)}")
+                    else:
+                        click.echo("⚠️  All found links were already in the list")
+                else:
+                    click.echo("⚠️  No valid documentation links found in selected elements")
+            
+            except Exception as e:
+                click.echo(f"❌ Error searching for elements: {e}")
+        
+        elif choice == "a":
+            # Show all links
+            _display_links_table(current_links, 0, len(current_links))
+            click.echo("Press Enter to continue...")
+            click.getchar()
+        
+        elif choice == "c":
+            # Cancel
+            if click.confirm("Cancel generation?", default=False):
+                return []
+        
+        else:
+            click.echo("⚠️  Invalid choice. Please try again.")
+
+
 async def generate_mcp_server_async(
     url: str,
     name: str,
@@ -104,20 +279,14 @@ async def generate_mcp_server_async(
         
         click.echo(f"✓ Found {len(links)} documentation links")
         click.echo()
-        click.echo("📋 Root navigation links to be scraped:")
-        for i, link in enumerate(links[:20], 1):  # Show first 20 links
-            click.echo(f"  {i}. {link}")
         
-        if len(links) > 20:
-            click.echo(f"  ... and {len(links) - 20} more")
+        # Interactive verification loop
+        links = await _verify_and_filter_links(links, html_content, url, config)
         
-        click.echo()
-        
-        # Pause for user verification
-        if not click.confirm("Do you want to proceed with scraping these links?", default=True):
+        if not links:
             return GenerationResult(
                 success=False,
-                message="Generation cancelled by user.",
+                message="No links to scrape after filtering.",
                 database_path=None,
                 project_name=name
             )
