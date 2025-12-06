@@ -177,6 +177,7 @@ def main():
     Jedi-MCP: Convert technical documentation websites into MCP servers.
     
     Use 'jedi-mcp generate' to create an MCP server from documentation,
+    'jedi-mcp list-projects' to see available projects,
     and 'jedi-mcp serve' to run the server.
     """
     pass
@@ -274,6 +275,67 @@ def generate(url: str, name: str, rate_limit: float, max_retries: int, timeout: 
     else:
         click.echo()
         click.echo(f"❌ Generation failed: {result.message}", err=True)
+        sys.exit(1)
+
+
+@main.command()
+@click.option(
+    '--db-path',
+    type=click.Path(path_type=Path),
+    default=None,
+    help='Custom database path (default: ~/.jedi-mcp/jedi-mcp.db)'
+)
+def list_projects(db_path: Path):
+    """
+    List all documentation projects in the database.
+    
+    This command displays all projects that have been generated
+    and are available to serve.
+    
+    Example:
+        jedi-mcp list-projects
+    """
+    # Set default database path if not provided
+    if db_path is None:
+        db_path = Path.home() / ".jedi-mcp" / "jedi-mcp.db"
+    
+    # Check if database exists
+    if not db_path.exists():
+        click.echo(
+            f"❌ Error: Database not found at {db_path}",
+            err=True
+        )
+        click.echo("\nNo projects have been generated yet. Use 'jedi-mcp generate' to create one.", err=True)
+        sys.exit(1)
+    
+    # Get all projects
+    db_manager = DatabaseManager(db_path)
+    
+    try:
+        projects = db_manager.get_all_projects()
+        
+        if not projects:
+            click.echo("📭 No projects found in the database.")
+            click.echo("\nUse 'jedi-mcp generate' to create a new project.")
+            return
+        
+        click.echo(f"📚 Found {len(projects)} project(s) in database:")
+        click.echo(f"📁 Database: {db_path}")
+        click.echo()
+        
+        for project in projects:
+            click.echo(f"  • {project['name']}")
+            click.echo(f"    URL: {project['root_url']}")
+            click.echo(f"    Groups: {project['content_groups_count']}")
+            click.echo(f"    Created: {project['created_at']}")
+            click.echo()
+        
+        click.echo("To serve a project, run:")
+        click.echo(f"  jedi-mcp serve --project <project-name>")
+        
+    except Exception as e:
+        logger.error(f"Failed to list projects: {e}", exc_info=True)
+        click.echo(f"❌ Error: Failed to list projects: {str(e)}", err=True)
         sys.exit(1)
 
 

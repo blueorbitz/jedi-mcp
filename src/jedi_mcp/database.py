@@ -301,3 +301,39 @@ class DatabaseManager:
                 summary_markdown=row[2],
                 pages=pages
             )
+    
+    def get_all_projects(self) -> List[dict]:
+        """
+        Retrieve all projects from the database with metadata.
+        
+        Returns:
+            List of dictionaries containing project information
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Get all projects with content group counts
+            cursor.execute(
+                """
+                SELECT 
+                    p.name,
+                    p.root_url,
+                    p.created_at,
+                    COUNT(cg.id) as content_groups_count
+                FROM projects p
+                LEFT JOIN content_groups cg ON p.id = cg.project_id
+                GROUP BY p.id, p.name, p.root_url, p.created_at
+                ORDER BY p.created_at DESC
+                """
+            )
+            
+            projects = []
+            for row in cursor.fetchall():
+                projects.append({
+                    'name': row[0],
+                    'root_url': row[1],
+                    'created_at': row[2],
+                    'content_groups_count': row[3]
+                })
+            
+            return projects

@@ -119,6 +119,18 @@ export JEDI_CONTENT_MODEL=qwen.qwen3-coder-30b-a3b-v1:0  # For Bedrock
 jedi-mcp generate --url https://docs.example.com --name example-docs
 ```
 
+### List Available Projects
+
+```bash
+jedi-mcp list-projects
+```
+
+This will display all projects in the database with their metadata:
+- Project name
+- Root URL
+- Number of content groups
+- Creation timestamp
+
 ### Run the MCP Server
 
 **Stdio transport (for MCP clients like Kiro):**
@@ -219,6 +231,9 @@ or
 - `--rate-limit`: Delay between requests in seconds (default: 0.5)
 - `--max-retries`: Maximum retries for failed requests (default: 3)
 - `--timeout`: Request timeout in seconds (default: 30)
+- `--db-path`: Custom database path (default: ~/.jedi-mcp/jedi-mcp.db)
+
+**List-projects command:**
 - `--db-path`: Custom database path (default: ~/.jedi-mcp/jedi-mcp.db)
 
 **Serve command:**
