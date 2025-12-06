@@ -103,6 +103,26 @@ async def generate_mcp_server_async(
             )
         
         click.echo(f"✓ Found {len(links)} documentation links")
+        click.echo()
+        click.echo("📋 Root navigation links to be scraped:")
+        for i, link in enumerate(links[:20], 1):  # Show first 20 links
+            click.echo(f"  {i}. {link}")
+        
+        if len(links) > 20:
+            click.echo(f"  ... and {len(links) - 20} more")
+        
+        click.echo()
+        
+        # Pause for user verification
+        if not click.confirm("Do you want to proceed with scraping these links?", default=True):
+            return GenerationResult(
+                success=False,
+                message="Generation cancelled by user.",
+                database_path=None,
+                project_name=name
+            )
+        
+        click.echo()
         
         # Step 2: Crawl pages
         click.echo(f"📥 Crawling {len(links)} pages...")

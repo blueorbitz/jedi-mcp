@@ -56,7 +56,7 @@ Return a JSON array of groups with this structure:
 Guidelines:
 - Group names should be concise, lowercase with hyphens (e.g., "getting-started", "api-reference")
 - Each page should belong to exactly one group
-- Create 3-8 groups depending on content diversity
+- Create 5-15 groups depending on content diversity
 - Group related concepts together (e.g., all authentication pages, all API endpoints)
 - Consider the logical flow developers would follow"""
     )
