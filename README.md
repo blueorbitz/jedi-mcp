@@ -146,6 +146,20 @@ To use with Kiro, add to `.kiro/settings/mcp.json`:
 }
 ```
 
+or
+
+
+```json
+{
+  "mcpServers": {
+    "jedi-mcp": {
+      "url": "http://localhost:8000/sse",
+      "transport": "http"
+    }
+  }
+}
+```
+
 ### Command Options
 
 **Generate command:**
