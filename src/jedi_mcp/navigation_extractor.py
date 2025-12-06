@@ -5,19 +5,14 @@ This module provides navigation extraction with two approaches:
 2. AI-based extraction (fallback) - For complex or unusual navigation structures
 """
 
-import os
 import asyncio
 from typing import List, Optional
 from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
 from strands import Agent
-from strands.models.gemini import GeminiModel
-from dotenv import load_dotenv
 
 from .models import DocumentationLink
-
-# Load environment variables from .env file
-load_dotenv()
+from .model_config import create_navigation_model
 
 # Try to import playwright for browser-based extraction
 try:
@@ -339,22 +334,12 @@ def _extract_with_ai(html_content: str, base_url: str) -> List[DocumentationLink
     if not nav_html.strip():
         nav_html = str(soup)
     
-    # Configure Gemini model
-    gemini_model = GeminiModel(
-        client_args={
-            "api_key": os.environ.get("GOOGLE_API_KEY"),
-        },
-        model_id="gemini-2.5-flash",
-        params={
-            "temperature": 0.1,
-            "max_output_tokens": 8192,
-            "top_p": 0.95,
-        }
-    )
-    
+    # Create model for navigation extraction
+    model = create_navigation_model()
+
     # Create AI agent to analyze navigation
     agent = Agent(
-        model=gemini_model,
+        model=model,
         system_prompt="""You are a documentation navigation analyzer. Your task is to extract ALL documentation links from the sidebar/navigation menu.
 
 CRITICAL INSTRUCTIONS:

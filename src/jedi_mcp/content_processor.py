@@ -1,17 +1,12 @@
 """Content processing and grouping using AI to organize documentation."""
 
-import os
 import json
 import logging
 from typing import List
 from strands import Agent
-from strands.models.gemini import GeminiModel
-from dotenv import load_dotenv
 
 from .models import PageContent, ContentGroup
-
-# Load environment variables from .env file
-load_dotenv()
+from .model_config import create_content_processing_model
 
 logger = logging.getLogger(__name__)
 
@@ -38,22 +33,12 @@ def process_content(pages: List[PageContent]) -> List[ContentGroup]:
     
     logger.info(f"Processing {len(pages)} pages for content grouping")
     
-    # Configure Gemini model
-    gemini_model = GeminiModel(
-        client_args={
-            "api_key": os.environ.get("GOOGLE_API_KEY"),
-        },
-        model_id="gemini-2.5-flash",
-        params={
-            "temperature": 0.3,
-            "max_output_tokens": 8192,
-            "top_p": 0.9,
-        }
-    )
+    # Create model for content processing
+    model = create_content_processing_model()
     
     # Create AI agent for content analysis
     agent = Agent(
-        model=gemini_model,
+        model=model,
         system_prompt="""You are a technical documentation analyzer. Your task is to:
 1. Analyze relationships between documentation pages
 2. Group related pages by topic, API category, or conceptual similarity

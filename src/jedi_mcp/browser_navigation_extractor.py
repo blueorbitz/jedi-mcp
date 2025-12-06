@@ -1,19 +1,14 @@
 """Navigation extraction using headless browser and AI."""
 
-import os
 import asyncio
 from typing import List, Optional
 from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
 from playwright.async_api import async_playwright, Browser, Page
 from strands import Agent
-from strands.models.gemini import GeminiModel
-from dotenv import load_dotenv
 
 from .models import DocumentationLink
-
-# Load environment variables from .env file
-load_dotenv()
+from .model_config import create_navigation_model
 
 
 async def fetch_rendered_html(url: str, wait_for_selector: Optional[str] = None) -> str:
@@ -97,22 +92,12 @@ async def extract_navigation_with_browser(url: str) -> List[DocumentationLink]:
         # Fallback: use all links if no navigation found
         nav_html = str(soup)
     
-    # Configure Gemini model
-    gemini_model = GeminiModel(
-        client_args={
-            "api_key": os.environ.get("GOOGLE_API_KEY"),
-        },
-        model_id="gemini-2.0-flash-exp",
-        params={
-            "temperature": 0.1,
-            "max_output_tokens": 8192,
-            "top_p": 0.95,
-        }
-    )
+    # Create model for navigation extraction
+    model = create_navigation_model()
     
     # Create AI agent to analyze navigation
     agent = Agent(
-        model=gemini_model,
+        model=model,
         system_prompt="""You are a documentation navigation analyzer. Extract ALL documentation links from the sidebar/navigation menu.
 
 CRITICAL INSTRUCTIONS:

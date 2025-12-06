@@ -36,29 +36,80 @@ uv pip install 'strands-agents[gemini]'
 
 ## Configuration
 
-### Google Gemini API Key
+### Model Provider Selection
 
-Jedi-MCP uses Google Gemini for AI-powered navigation extraction. You need to set up your API key:
+Jedi-MCP supports multiple AI providers for navigation extraction and content processing. You can choose between:
+
+- **Google Gemini** (default) - Fast and cost-effective
+- **AWS Bedrock** - Enterprise-grade with various model options
+
+#### Using Google Gemini (Default)
 
 1. Get your API key from [Google AI Studio](https://aistudio.google.com/app/apikey)
 2. Set the environment variable:
 
 ```bash
 # On Linux/Mac
+export JEDI_MODEL_PROVIDER=gemini
 export GOOGLE_API_KEY="your-api-key-here"
 
 # On Windows (PowerShell)
+$env:JEDI_MODEL_PROVIDER="gemini"
 $env:GOOGLE_API_KEY="your-api-key-here"
 
 # On Windows (CMD)
+set JEDI_MODEL_PROVIDER=gemini
 set GOOGLE_API_KEY=your-api-key-here
 ```
 
-Alternatively, create a `.env` file in the project root:
+Or create a `.env` file in the project root:
 
 ```
+JEDI_MODEL_PROVIDER=gemini
 GOOGLE_API_KEY=your-api-key-here
 ```
+
+#### Using AWS Bedrock
+
+1. Configure AWS credentials (via environment variables, credentials file, or IAM role)
+2. Set the model provider:
+
+```bash
+# On Linux/Mac
+export JEDI_MODEL_PROVIDER=bedrock
+export AWS_REGION=us-east-1
+
+# On Windows (PowerShell)
+$env:JEDI_MODEL_PROVIDER="bedrock"
+$env:AWS_REGION="us-east-1"
+```
+
+Or in `.env`:
+
+```
+JEDI_MODEL_PROVIDER=bedrock
+AWS_REGION=us-east-1
+```
+
+#### Advanced Configuration
+
+You can override specific model IDs for different tasks:
+
+```bash
+# Navigation extraction model
+export JEDI_NAVIGATION_MODEL=gemini-2.0-flash-exp  # For Gemini
+# or
+export JEDI_NAVIGATION_MODEL=qwen.qwen3-coder-30b-a3b-v1:0  # For Bedrock
+
+# Content processing model
+export JEDI_CONTENT_MODEL=gemini-2.0-flash-exp  # For Gemini
+# or
+export JEDI_CONTENT_MODEL=qwen.qwen3-coder-30b-a3b-v1:0  # For Bedrock
+```
+
+**Default Models:**
+- Gemini: `gemini-2.0-flash-exp` for both navigation and content processing
+- Bedrock: `us.anthropic.claude-3-5-sonnet-20241022-v2:0` for both tasks
 
 ## Usage
 
