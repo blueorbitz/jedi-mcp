@@ -17,10 +17,24 @@ Jedi-MCP is a Python CLI tool that transforms technical documentation websites i
 
 ## Installation
 
+### Option 1: Direct Usage with uvx (Recommended)
+
 ```bash
 # Install UV if you haven't already
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
+# Use directly with uvx from local directory
+uvx --from . jedi-mcp generate --url https://docs.example.com --name example-docs
+uvx --from . jedi-mcp serve --project example-docs
+
+# Or once published to PyPI (coming soon):
+# uvx jedi-mcp generate --url https://docs.example.com --name example-docs
+# uvx jedi-mcp serve --project example-docs
+```
+
+### Option 2: Local Development Installation
+
+```bash
 # Clone the repository
 git clone <repository-url>
 cd jedi-mcp
@@ -30,8 +44,9 @@ uv venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 uv pip install -e ".[dev]"
 
-# Install Gemini support (required for AI-powered navigation extraction)
-uv pip install 'strands-agents[gemini]'
+# Gemini support is included by default
+# For Bedrock support, install with: uv pip install -e ".[bedrock]"
+# For all providers: uv pip install -e ".[all]"
 ```
 
 ## Configuration
@@ -116,13 +131,27 @@ export JEDI_CONTENT_MODEL=qwen.qwen3-coder-30b-a3b-v1:0  # For Bedrock
 ### Generate MCP Server from Documentation
 
 ```bash
+# Using uvx from local directory (recommended)
+uvx --from . jedi-mcp generate --url https://docs.example.com --name example-docs
+
+# Or using local installation
 jedi-mcp generate --url https://docs.example.com --name example-docs
+
+# Once published to PyPI:
+# uvx jedi-mcp generate --url https://docs.example.com --name example-docs
 ```
 
 ### List Available Projects
 
 ```bash
+# Using uvx from local directory
+uvx --from . jedi-mcp list-projects
+
+# Or using local installation
 jedi-mcp list-projects
+
+# Once published to PyPI:
+# uvx jedi-mcp list-projects
 ```
 
 This will display all projects in the database with their metadata:
@@ -135,12 +164,26 @@ This will display all projects in the database with their metadata:
 
 **Stdio transport (for MCP clients like Kiro):**
 ```bash
+# Using uvx from local directory (recommended)
+uvx --from . jedi-mcp serve --project example-docs
+
+# Or using local installation
 jedi-mcp serve --project example-docs
+
+# Once published to PyPI:
+# uvx jedi-mcp serve --project example-docs
 ```
 
 **SSE transport (for HTTP/localhost access and MCP Inspector):**
 ```bash
+# Using uvx from local directory
+uvx --from . jedi-mcp serve --project example-docs --transport sse --port 8000
+
+# Or using local installation
 jedi-mcp serve --project example-docs --transport sse --port 8000
+
+# Once published to PyPI:
+# uvx jedi-mcp serve --project example-docs --transport sse --port 8000
 ```
 
 The server will be available at `http://localhost:8000/sse`
@@ -196,6 +239,35 @@ Example workflow:
 
 To use with Kiro, add to `.kiro/settings/mcp.json`:
 
+**Option 1: Direct uvx usage from local directory:**
+```json
+{
+  "mcpServers": {
+    "jedi-mcp": {
+      "command": "uvx",
+      "args": ["--from", "/path/to/jedi-mcp", "jedi-mcp", "serve", "--project", "example-docs"],
+      "disabled": false,
+      "autoApprove": []
+    }
+  }
+}
+```
+
+**Option 1b: Direct uvx usage (once published to PyPI):**
+```json
+{
+  "mcpServers": {
+    "jedi-mcp": {
+      "command": "uvx",
+      "args": ["jedi-mcp", "serve", "--project", "example-docs"],
+      "disabled": false,
+      "autoApprove": []
+    }
+  }
+}
+```
+
+**Option 2: Local installation:**
 ```json
 {
   "mcpServers": {
@@ -209,9 +281,7 @@ To use with Kiro, add to `.kiro/settings/mcp.json`:
 }
 ```
 
-or
-
-
+**Option 3: HTTP/SSE transport:**
 ```json
 {
   "mcpServers": {
@@ -259,6 +329,28 @@ pytest
 
 # Run property-based tests
 pytest tests/property/
+```
+
+## Publishing
+
+To publish to PyPI for easier uvx usage:
+
+```bash
+# Build the package
+uv build
+
+# Publish to PyPI (requires PyPI account and API token)
+uv publish
+
+# Or publish to TestPyPI first
+uv publish --repository testpypi
+```
+
+Once published, users can use it directly with uvx:
+
+```bash
+uvx jedi-mcp generate --url https://docs.example.com --name example-docs
+uvx jedi-mcp serve --project example-docs
 ```
 
 ## License
