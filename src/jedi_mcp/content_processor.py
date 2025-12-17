@@ -43,6 +43,7 @@ def process_content(pages: List[PageContent]) -> List[ContentGroup]:
 1. Analyze relationships between documentation pages
 2. Group related pages by topic, API category, or conceptual similarity
 3. Create logical, coherent groupings that make sense for developers
+4. Prioritize preserving important context (code examples, explanations) over strict group limits
 
 Return a JSON array of groups with this structure:
 [
@@ -56,24 +57,27 @@ Return a JSON array of groups with this structure:
 Guidelines:
 - Group names should be concise, lowercase with hyphens (e.g., "getting-started", "api-reference")
 - Each page should belong to exactly one group
-- Create 5-15 groups depending on content diversity
+- Prioritize preserving important context over strict group count limits (5-15 is a recommendation)
 - Group related concepts together (e.g., all authentication pages, all API endpoints)
+- Keep code examples and explanations together in the same group
 - Consider the logical flow developers would follow"""
     )
     
     # Prepare page summaries for analysis
     page_summaries = []
     for i, page in enumerate(pages):
-        # Create a concise summary of each page
-        content_preview = page.content[:500] if len(page.content) > 500 else page.content
+        # Create a more comprehensive summary of each page to preserve context
+        content_preview = page.content[:1000] if len(page.content) > 1000 else page.content
         has_code = len(page.code_blocks) > 0
+        code_preview = page.code_blocks[:3] if page.code_blocks else []  # Include sample code blocks
         
         page_summaries.append({
             "index": i,
             "url": page.url,
             "title": page.title,
             "content_preview": content_preview,
-            "has_code_examples": has_code
+            "has_code_examples": has_code,
+            "code_samples": code_preview
         })
     
     # Use agent to group pages
@@ -138,6 +142,36 @@ Return only the JSON array of groups."""
     return content_groups
 
 
+def _deduplicate_content(pages: List[PageContent]) -> List[PageContent]:
+    """
+    Remove duplicate content while preserving unique code examples and explanations.
+    
+    Args:
+        pages: List of pages to deduplicate
+        
+    Returns:
+        List of pages with duplicates removed but unique content preserved
+    """
+    seen_content = set()
+    seen_code_blocks = set()
+    deduplicated_pages = []
+    
+    for page in pages:
+        # Check for content similarity (first 500 chars as fingerprint)
+        content_fingerprint = page.content[:500].strip()
+        
+        # Always keep pages with unique code blocks
+        unique_code_blocks = [block for block in page.code_blocks if block not in seen_code_blocks]
+        
+        # Keep page if it has unique content or unique code blocks
+        if content_fingerprint not in seen_content or unique_code_blocks:
+            deduplicated_pages.append(page)
+            seen_content.add(content_fingerprint)
+            seen_code_blocks.update(page.code_blocks)
+    
+    return deduplicated_pages
+
+
 def _generate_group_summary(
     agent: Agent,
     group_name: str,
@@ -156,14 +190,18 @@ def _generate_group_summary(
     Returns:
         Detailed markdown-formatted summary
     """
-    # Prepare content for summarization
+    # Deduplicate pages while preserving unique content and code examples
+    deduplicated_pages = _deduplicate_content(pages)
+    
+    # Prepare content for summarization - preserve more context
     pages_content = []
-    for page in pages:
+    for page in deduplicated_pages:
+        # Increase content limit and preserve more code blocks for better context
         page_info = {
             "title": page.title,
             "url": page.url,
-            "content": page.content[:2000],  # Limit content to avoid token limits
-            "code_blocks": page.code_blocks[:5]  # Include up to 5 code blocks
+            "content": page.content[:3000],  # Increased limit to preserve more context
+            "code_blocks": page.code_blocks[:10]  # Include more code blocks
         }
         pages_content.append(page_info)
     
@@ -180,15 +218,20 @@ Generate a detailed markdown summary that:
 1. Starts with a clear heading (# {group_name.replace('-', ' ').title()})
 2. Provides an overview of what this group covers
 3. Includes key concepts and important information
-4. Preserves and includes relevant code examples with proper markdown code blocks
-5. Includes API signatures, function definitions, or important syntax
-6. Uses proper markdown formatting:
+4. PRIORITIZES preserving code examples and explanations - these are critical context
+5. Includes ALL relevant code examples with proper markdown code blocks
+6. Includes API signatures, function definitions, or important syntax
+7. Avoids duplicating identical content across different sections
+8. Uses proper markdown formatting:
    - Headings (##, ###) for sections
    - Code blocks with language tags (```python, ```javascript, etc.)
    - Lists for enumerating features or steps
    - Bold/italic for emphasis where appropriate
-7. Provides sufficient context for AI coding assistants to help developers
+9. Provides sufficient context for AI coding assistants to help developers
+10. Consolidates similar concepts to avoid redundancy while preserving unique examples
 
+IMPORTANT: Code examples and their explanations are more valuable than brevity. 
+Keep all unique code examples and their context. Only remove truly duplicate content.
 The summary should be detailed enough that a developer can understand the topic without visiting the original pages.
 Focus on practical, actionable information.
 
