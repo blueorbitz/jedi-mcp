@@ -22,6 +22,19 @@ except ImportError:
     PLAYWRIGHT_AVAILABLE = False
 
 
+async def extract_navigation_links_async(base_url: str) -> List[DocumentationLink]:
+    """
+    Async version of navigation extraction using browser-based extraction.
+    
+    Args:
+        base_url: Base URL for the documentation site
+        
+    Returns:
+        List of DocumentationLink objects with URLs and metadata
+    """
+    return await _extract_with_browser(base_url)
+
+
 def extract_navigation_links(html_content: str, base_url: str, use_browser: bool = False) -> List[DocumentationLink]:
     """
     Extract documentation links from navigation/sidebar elements.

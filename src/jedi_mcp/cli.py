@@ -14,7 +14,7 @@ from bs4 import BeautifulSoup
 
 from .models import CrawlConfig, GenerationResult
 from .database import DatabaseManager
-from .navigation_extractor import extract_navigation_links
+from .navigation_extractor import extract_navigation_links, extract_navigation_links_async
 from .crawler import crawl_pages
 from .content_processor import process_content
 from .mcp_server import run_mcp_server
@@ -262,12 +262,33 @@ async def generate_mcp_server_async(
         # Step 1: Extract navigation links
         click.echo(f"🔍 Extracting navigation links from {url}...")
         
+        # First, try fast HTML-based extraction
         async with httpx.AsyncClient(timeout=config.timeout) as client:
             response = await client.get(url)
             response.raise_for_status()
             html_content = response.text
         
-        links = extract_navigation_links(html_content, url)
+        click.echo(f"   Trying fast HTML-based extraction...")
+        links = extract_navigation_links(html_content, url, use_browser=False)
+        
+        # If no links found, offer browser-based extraction
+        if not links:
+            click.echo(f"⚠️  No navigation links found with fast extraction.")
+            click.echo(f"   This might be a site with JavaScript-rendered navigation (e.g., Microsoft Learn, React-based docs).")
+            
+            if click.confirm(f"🌐 Would you like to try browser-based extraction? (slower but handles JavaScript)"):
+                click.echo(f"   Using browser-based extraction...")
+                try:
+                    links = await extract_navigation_links_async(url)
+                    if links:
+                        click.echo(f"✓ Browser-based extraction found {len(links)} links!")
+                    else:
+                        click.echo(f"⚠️  Browser-based extraction also found no links.")
+                except Exception as e:
+                    click.echo(f"❌ Browser-based extraction failed: {e}")
+                    click.echo(f"   Make sure Playwright is installed: pip install playwright && playwright install")
+            else:
+                click.echo(f"   Skipping browser-based extraction.")
         
         if not links:
             return GenerationResult(
