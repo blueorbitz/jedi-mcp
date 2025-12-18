@@ -53,7 +53,16 @@ def extract_navigation_links(html_content: str, base_url: str, use_browser: bool
 
 
 async def _extract_with_browser(url: str) -> List[DocumentationLink]:
-    """Extract navigation using headless browser."""
+    """Extract navigation using headless browser with site-specific support."""
+    # Check if this is a Microsoft Learn URL (requires specialized extraction)
+    if _is_microsoft_learn_url(url):
+        try:
+            return await _extract_microsoft_learn_navigation(url)
+        except Exception as e:
+            print(f"⚠️  Microsoft Learn extraction failed: {e}")
+            print("   Falling back to smart navigation extraction...")
+    
+    # Fallback to smart navigation extractor for all other sites
     from .smart_navigation_extractor import extract_navigation_smart
     return await extract_navigation_smart(url)
 
@@ -152,6 +161,18 @@ def _is_material_mkdocs_sidebar(sidebar) -> bool:
     # Material for MkDocs uses md-sidebar and md-nav classes
     classes = ' '.join(sidebar.get('class', []))
     return 'md-sidebar' in classes or bool(sidebar.find(class_=lambda x: x and 'md-nav' in str(x)))
+
+
+def _is_microsoft_learn_url(url: str) -> bool:
+    """Check if the URL is a Microsoft Learn documentation page."""
+    parsed = urlparse(url)
+    return parsed.netloc == 'learn.microsoft.com'
+
+
+async def _extract_microsoft_learn_navigation(url: str) -> List[DocumentationLink]:
+    """Extract navigation from Microsoft Learn documentation with collapsible tree support."""
+    from .ms_learn_extractor import extract_ms_learn_navigation
+    return await extract_ms_learn_navigation(url)
 
 
 def _extract_material_mkdocs_links(sidebar, base_url: str, base_domain: str) -> List[DocumentationLink]:
