@@ -63,7 +63,7 @@ def create_navigation_model():
         return BedrockModel(
             model_id=model_id,
             temperature=0.1,
-            max_output_tokens=20000,
+            max_output_tokens=8192,
             top_p=0.95,
         )
 
@@ -94,7 +94,7 @@ def create_content_processing_model():
             model_id=model_id,
             params={
                 "temperature": 0.3,
-                "max_output_tokens": 8192,
+                "max_output_tokens": 32768,
                 "top_p": 0.9,
             }
         )
@@ -103,6 +103,6 @@ def create_content_processing_model():
         return BedrockModel(
             model_id=model_id,
             temperature=0.3,
-            max_output_tokens=20000,
+            max_output_tokens=32768,
             top_p=0.9,
         )

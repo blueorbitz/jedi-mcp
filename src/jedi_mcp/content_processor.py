@@ -69,7 +69,8 @@ Guidelines:
         # Create a more comprehensive summary of each page to preserve context
         content_preview = page.content[:1000] if len(page.content) > 1000 else page.content
         has_code = len(page.code_blocks) > 0
-        code_preview = page.code_blocks[:3] if page.code_blocks else []  # Include sample code blocks
+        # Prioritize code blocks by language for preview
+        prioritized_code_preview = _prioritize_code_blocks(page.code_blocks[:3]) if page.code_blocks else []
         
         page_summaries.append({
             "index": i,
@@ -77,7 +78,7 @@ Guidelines:
             "title": page.title,
             "content_preview": content_preview,
             "has_code_examples": has_code,
-            "code_samples": code_preview
+            "code_samples": prioritized_code_preview
         })
     
     # Use agent to group pages
@@ -145,6 +146,7 @@ Return only the JSON array of groups."""
 def _deduplicate_content(pages: List[PageContent]) -> List[PageContent]:
     """
     Remove duplicate content while preserving unique code examples and explanations.
+    Prioritizes JavaScript, Python, and PHP code examples.
     
     Args:
         pages: List of pages to deduplicate
@@ -160,16 +162,66 @@ def _deduplicate_content(pages: List[PageContent]) -> List[PageContent]:
         # Check for content similarity (first 500 chars as fingerprint)
         content_fingerprint = page.content[:500].strip()
         
-        # Always keep pages with unique code blocks
-        unique_code_blocks = [block for block in page.code_blocks if block not in seen_code_blocks]
+        # Prioritize code blocks by language and check for uniqueness
+        prioritized_code_blocks = _prioritize_code_blocks(page.code_blocks)
+        unique_code_blocks = [block for block in prioritized_code_blocks if block not in seen_code_blocks]
         
         # Keep page if it has unique content or unique code blocks
         if content_fingerprint not in seen_content or unique_code_blocks:
-            deduplicated_pages.append(page)
+            # Update the page with prioritized code blocks
+            updated_page = PageContent(
+                url=page.url,
+                title=page.title,
+                content=page.content,
+                code_blocks=prioritized_code_blocks
+            )
+            deduplicated_pages.append(updated_page)
             seen_content.add(content_fingerprint)
             seen_code_blocks.update(page.code_blocks)
     
     return deduplicated_pages
+
+
+def _prioritize_code_blocks(code_blocks: List[str]) -> List[str]:
+    """
+    Prioritize code blocks by language: JavaScript, Python, PHP, then others.
+    
+    Args:
+        code_blocks: List of code block strings
+        
+    Returns:
+        Reordered list with prioritized languages first
+    """
+    if not code_blocks:
+        return code_blocks
+    
+    # Language detection keywords and patterns
+    js_indicators = ['function', 'const ', 'let ', 'var ', '=>', 'console.log', 'document.', 'window.', 'async ', 'await ', 'import ', 'export ', 'require(', 'module.exports', 'npm ', 'yarn ', 'node ', '.js', '.ts', '.jsx', '.tsx']
+    python_indicators = ['def ', 'import ', 'from ', 'class ', 'if __name__', 'print(', 'pip install', 'python ', '.py', 'self.', 'elif ', 'lambda ', 'yield ', 'with ', 'try:', 'except:', 'finally:']
+    php_indicators = ['<?php', 'function ', '$', 'echo ', 'print ', 'class ', 'public ', 'private ', 'protected ', 'namespace ', 'use ', 'composer ', '.php', '->']
+    
+    def get_language_priority(code_block: str) -> int:
+        """Return priority score: 1=JavaScript, 2=Python, 3=PHP, 4=Other"""
+        code_lower = code_block.lower()
+        
+        # Count indicators for each language
+        js_score = sum(1 for indicator in js_indicators if indicator.lower() in code_lower)
+        python_score = sum(1 for indicator in python_indicators if indicator.lower() in code_lower)
+        php_score = sum(1 for indicator in php_indicators if indicator.lower() in code_lower)
+        
+        # Return priority based on highest score
+        if js_score > python_score and js_score > php_score:
+            return 1  # JavaScript
+        elif python_score > php_score:
+            return 2  # Python
+        elif php_score > 0:
+            return 3  # PHP
+        else:
+            return 4  # Other
+    
+    # Sort code blocks by priority
+    prioritized_blocks = sorted(code_blocks, key=get_language_priority)
+    return prioritized_blocks
 
 
 def _generate_group_summary(
@@ -196,12 +248,15 @@ def _generate_group_summary(
     # Prepare content for summarization - preserve more context
     pages_content = []
     for page in deduplicated_pages:
+        # Prioritize code blocks by language (JavaScript, Python, PHP, others)
+        prioritized_code_blocks = _prioritize_code_blocks(page.code_blocks[:10])
+        
         # Increase content limit and preserve more code blocks for better context
         page_info = {
             "title": page.title,
             "url": page.url,
             "content": page.content[:3000],  # Increased limit to preserve more context
-            "code_blocks": page.code_blocks[:10]  # Include more code blocks
+            "code_blocks": prioritized_code_blocks  # Include prioritized code blocks
         }
         pages_content.append(page_info)
     
@@ -220,18 +275,21 @@ Generate a detailed markdown summary that:
 3. Includes key concepts and important information
 4. PRIORITIZES preserving code examples and explanations - these are critical context
 5. Includes ALL relevant code examples with proper markdown code blocks
-6. Includes API signatures, function definitions, or important syntax
-7. Avoids duplicating identical content across different sections
-8. Uses proper markdown formatting:
-   - Headings (##, ###) for sections
-   - Code blocks with language tags (```python, ```javascript, etc.)
-   - Lists for enumerating features or steps
-   - Bold/italic for emphasis where appropriate
-9. Provides sufficient context for AI coding assistants to help developers
-10. Consolidates similar concepts to avoid redundancy while preserving unique examples
+6. PRIORITIZES code examples in this order: JavaScript first, then Python, then PHP, then other languages
+7. When multiple code examples exist for the same concept, show JavaScript examples first, followed by Python, then PHP
+8. Includes API signatures, function definitions, or important syntax
+9. Avoids duplicating identical content across different sections
+10. Uses proper markdown formatting:
+    - Headings (##, ###) for sections
+    - Code blocks with language tags (```javascript, ```python, ```php, etc.)
+    - Lists for enumerating features or steps
+    - Bold/italic for emphasis where appropriate
+11. Provides sufficient context for AI coding assistants to help developers
+12. Consolidates similar concepts to avoid redundancy while preserving unique examples
 
 IMPORTANT: Code examples and their explanations are more valuable than brevity. 
 Keep all unique code examples and their context. Only remove truly duplicate content.
+When presenting code examples, prioritize JavaScript, then Python, then PHP over other languages.
 The summary should be detailed enough that a developer can understand the topic without visiting the original pages.
 Focus on practical, actionable information.
 
