@@ -16,14 +16,14 @@ This implementation plan transforms the existing Jedi MCP system into a vector-e
   - **Property 6: Vector Database Storage and Search**
   - **Validates: Requirements 1.2, 1.3**
 
-- [ ] 2. Implement embedding generation system
-  - [ ] 2.1 Create EmbeddingGenerator class with sentence-transformers support
+- [x] 2. Implement embedding generation system
+  - [x] 2.1 Create EmbeddingGenerator class with sentence-transformers support
     - Support all-MiniLM-L6-v2 and Qwen3-Embedding-0.6B models
     - Implement batch processing and dynamic dimension handling
     - Add environment variable configuration loading
     - _Requirements: 2.1, 2.2_
 
-  - [ ] 2.2 Extend VectorDatabaseManager with embedding operations
+  - [x] 2.2 Extend VectorDatabaseManager with embedding operations
     - Add methods for storing and retrieving embeddings
     - Implement project embedding configuration persistence
     - Add vector similarity search functionality
