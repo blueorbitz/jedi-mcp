@@ -100,14 +100,14 @@ This implementation plan transforms the existing Jedi MCP system into a vector-e
   - **Property 4: Document Listing Format**
   - **Validates: Requirements 5.2, 5.4**
 
-- [-] 8. Update MCP server to use new vector-enabled tools
-  - [ ] 8.1 Replace existing content group tools with new vector tools
+- [x] 8. Update MCP server to use new vector-enabled tools
+  - [x] 8.1 Replace existing content group tools with new vector tools
     - Remove individual content group tool registration
     - Register searchDoc, loadDoc, and listDoc tools
     - Ensure proper tool descriptions and parameter validation
     - _Requirements: 3.1, 4.1, 5.1_
 
-  - [ ] 8.2 Implement project embedding configuration loading during server startup
+  - [x] 8.2 Implement project embedding configuration loading during server startup
     - Load stored embedding model settings from database
     - Initialize embedding generator with project-specific configuration
     - Ensure consistency between generation and serving phases

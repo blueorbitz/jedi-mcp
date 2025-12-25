@@ -89,6 +89,123 @@ def generate_tool_description(summary_markdown: str, max_length: int = 100) -> s
     return description or "Documentation content"
 
 
+def handle_embedding_configuration_issues(
+    project_name: str,
+    db_manager: VectorDatabaseManager,
+    embedding_generator: Optional[EmbeddingGenerator]
+) -> Optional[EmbeddingGenerator]:
+    """
+    Handle embedding configuration issues and provide guidance.
+    
+    Args:
+        project_name: Name of the project
+        db_manager: Vector database manager
+        embedding_generator: Current embedding generator (may be None)
+        
+    Returns:
+        EmbeddingGenerator instance or None if cannot be resolved
+    """
+    try:
+        stored_config = db_manager.get_project_embedding_config(project_name)
+        
+        if not stored_config:
+            logger.warning(
+                f"Project '{project_name}' has no stored embedding configuration. "
+                "This suggests the project was generated without vector search capabilities."
+            )
+            logger.info(
+                "To enable vector search, regenerate the project with: "
+                f"jedi-mcp generate --project {project_name} --enable-vector-search"
+            )
+            return None
+        
+        if not embedding_generator:
+            logger.info("Attempting to create embedding generator from stored configuration")
+            try:
+                embedding_generator = EmbeddingGenerator(stored_config)
+                logger.info(f"Successfully created embedding generator with stored config: {stored_config.model}")
+                return embedding_generator
+            except Exception as e:
+                logger.error(f"Failed to create embedding generator from stored config: {e}")
+                return None
+        
+        # Validate consistency
+        if not validate_embedding_consistency(db_manager, project_name, embedding_generator):
+            logger.error(
+                "Embedding configuration is inconsistent between generation and serving phases. "
+                "This will cause poor search results."
+            )
+            logger.info(
+                "To fix this issue, regenerate the project with the same embedding model used during serving, "
+                f"or update the serving configuration to match the stored configuration: {stored_config.model}"
+            )
+            return embedding_generator  # Return it anyway, but with warnings
+        
+        return embedding_generator
+        
+    except Exception as e:
+        logger.error(f"Error handling embedding configuration: {e}")
+        return embedding_generator
+
+
+def validate_embedding_consistency(
+    db_manager: VectorDatabaseManager,
+    project_name: str,
+    embedding_generator: Optional[EmbeddingGenerator]
+) -> bool:
+    """
+    Validate that the embedding configuration is consistent between generation and serving.
+    
+    Args:
+        db_manager: Vector database manager
+        project_name: Name of the project
+        embedding_generator: Embedding generator instance
+        
+    Returns:
+        True if configuration is consistent, False otherwise
+    """
+    try:
+        if not embedding_generator:
+            logger.warning("No embedding generator available for consistency check")
+            return False
+        
+        # Get stored configuration
+        stored_config = db_manager.get_project_embedding_config(project_name)
+        if not stored_config:
+            logger.warning(f"No stored embedding configuration found for project '{project_name}'")
+            return False
+        
+        # Compare with current generator configuration
+        current_config = embedding_generator.config
+        
+        if stored_config.model != current_config.model:
+            logger.error(
+                f"Embedding model mismatch: stored='{stored_config.model}', "
+                f"current='{current_config.model}'"
+            )
+            return False
+        
+        if stored_config.dimension != current_config.dimension:
+            logger.error(
+                f"Embedding dimension mismatch: stored={stored_config.dimension}, "
+                f"current={current_config.dimension}"
+            )
+            return False
+        
+        if stored_config.provider != current_config.provider:
+            logger.warning(
+                f"Embedding provider mismatch: stored='{stored_config.provider}', "
+                f"current='{current_config.provider}' (this may be acceptable)"
+            )
+        
+        logger.info("Embedding configuration consistency validated successfully")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error validating embedding consistency: {e}")
+        return False
+
+
 def create_mcp_server(
     project_name: str,
     db_manager: Optional[DatabaseManager] = None,
@@ -136,15 +253,55 @@ def create_mcp_server(
                 embedding_config = db_manager.get_project_embedding_config(project_name)
                 if embedding_config:
                     embedding_generator = EmbeddingGenerator(embedding_config)
-                    logger.info(f"Initialized embedding generator with model: {embedding_config.model}")
+                    logger.info(f"Initialized embedding generator with stored configuration:")
+                    logger.info(f"  Model: {embedding_config.model}")
+                    logger.info(f"  Dimension: {embedding_config.dimension}")
+                    logger.info(f"  Provider: {embedding_config.provider}")
+                else:
+                    logger.warning(f"No embedding configuration found for project '{project_name}'")
+                    logger.info("This may indicate the project was generated without vector search capabilities")
+                    # Try to initialize with default configuration for backward compatibility
+                    try:
+                        default_config = EmbeddingConfig.from_env()
+                        embedding_generator = EmbeddingGenerator(default_config)
+                        logger.info(f"Initialized embedding generator with default configuration: {default_config.model}")
+                    except Exception as default_e:
+                        logger.warning(f"Failed to initialize default embedding generator: {default_e}")
             except Exception as e:
-                logger.warning(f"Failed to initialize embedding generator: {e}")
+                logger.error(f"Failed to load project embedding configuration: {e}")
+                logger.info("Attempting to initialize with default configuration")
+                try:
+                    default_config = EmbeddingConfig.from_env()
+                    embedding_generator = EmbeddingGenerator(default_config)
+                    logger.info(f"Initialized embedding generator with default configuration: {default_config.model}")
+                except Exception as default_e:
+                    logger.error(f"Failed to initialize default embedding generator: {default_e}")
+                    logger.warning("Vector search functionality may be limited without embedding generator")
+        else:
+            logger.warning("Database manager does not support embedding configuration")
+            logger.info("Vector search functionality will be limited")
         
         # Register vector search tools if we have vector capabilities
         if isinstance(db_manager, VectorDatabaseManager):
+            # Handle embedding configuration issues and ensure consistency
+            embedding_generator = handle_embedding_configuration_issues(
+                project_name, db_manager, embedding_generator
+            )
+            
             register_search_tools(mcp, db_manager, project_name, embedding_generator)
+            logger.info("Registered vector search tools: searchDoc, loadDoc, listDoc")
+            
+            # Check if we have vector data available
+            vector_documents = db_manager.list_all_documents(project_name)
+            if vector_documents:
+                logger.info(f"Found {len(vector_documents)} vector documents - using vector tools only")
+                # Vector tools are available and have data, skip legacy content group tools
+                logger.info(f"MCP server initialization complete for project: {project_name}")
+                return mcp
+            else:
+                logger.warning("No vector documents found, falling back to legacy content group tools")
         
-        # Query database for all content groups (legacy support)
+        # Query database for all content groups (legacy fallback)
         content_groups = db_manager.get_all_content_groups(project_name)
         
         if not content_groups:
@@ -152,10 +309,15 @@ def create_mcp_server(
             # Don't raise error if we have vector search tools - they might still work
             if not isinstance(db_manager, VectorDatabaseManager):
                 raise ValueError(f"Project '{project_name}' not found or has no content groups")
+            else:
+                logger.info("No legacy content groups available, relying on vector tools")
+                logger.info(f"MCP server initialization complete for project: {project_name}")
+                return mcp
         else:
             logger.info(f"Found {len(content_groups)} content groups for project: {project_name}")
+            logger.info("Registering legacy content group tools as fallback")
             
-            # Register tools for each content group (legacy support)
+            # Register tools for each content group (legacy fallback)
             for group in content_groups:
                 try:
                     # Sanitize tool name
@@ -232,7 +394,7 @@ def register_search_tools(
     
     @mcp.tool(
         name="searchDoc",
-        description="Search documentation using semantic similarity and keyword matching"
+        description="Search documentation using semantic similarity and keyword matching. Returns relevant documents with slugs for loading detailed content."
     )
     def search_documents(
         query: str,
@@ -244,10 +406,10 @@ def register_search_tools(
         Search for relevant documentation using semantic similarity.
         
         Args:
-            query: Natural language search query
+            query: Natural language search query (required, non-empty)
             project: Optional project name filter (defaults to current project)
             category: Optional category filter  
-            limit: Maximum number of results (default: 5, max: 20)
+            limit: Maximum number of results (default: 5, range: 1-20)
             
         Returns:
             JSON string with search results including slugs, titles, scores, and previews
@@ -258,11 +420,13 @@ def register_search_tools(
             # Validate inputs
             if not query or not query.strip():
                 return json.dumps({
-                    "error": "Query cannot be empty",
+                    "error": "Query parameter is required and cannot be empty",
                     "results": []
                 })
             
-            # Limit the maximum number of results
+            # Validate and clamp limit
+            if not isinstance(limit, int):
+                limit = 5
             limit = min(max(1, limit), 20)
             
             # Use provided project or default to current project
@@ -348,7 +512,7 @@ def register_search_tools(
     
     @mcp.tool(
         name="loadDoc",
-        description="Load full document content by slug identifier(s)"
+        description="Load complete document content by slug identifier. Supports single documents or batch loading with comma-separated slugs."
     )
     def load_document(
         slug: str,
@@ -359,12 +523,12 @@ def register_search_tools(
         Load complete document summary by slug identifier(s).
         
         Args:
-            slug: Document slug from search results, or comma-separated slugs for batch loading
+            slug: Document slug from search results (required), or comma-separated slugs for batch loading
             include_sections: Include section breakdown (default: True)
             include_metadata: Include source URLs and metadata (default: True)
             
         Returns:
-            Complete markdown document(s) with metadata and sections
+            Complete markdown document(s) with metadata and sections in JSON format
         """
         try:
             logger.info(f"loadDoc invoked with slug: '{slug}'")
@@ -372,7 +536,11 @@ def register_search_tools(
             # Validate input
             if not slug or not slug.strip():
                 return json.dumps({
-                    "error": "Document slug cannot be empty"
+                    "error": "Document slug parameter is required and cannot be empty",
+                    "suggestions": [
+                        "Use searchDoc to find valid document slugs",
+                        "Use listDoc to browse all available documents"
+                    ]
                 })
             
             # Handle batch loading - split by comma and clean up
@@ -512,7 +680,7 @@ def register_search_tools(
     
     @mcp.tool(
         name="listDoc",
-        description="List available documentation topics and categories"
+        description="List all available documentation topics and categories with metadata. Supports filtering and sorting options."
     )
     def list_documents(
         project: Optional[str] = None,
@@ -524,14 +692,20 @@ def register_search_tools(
         
         Args:
             project: Optional project name filter (defaults to current project)
-            category: Optional category filter
-            sort_by: Sort order - title, category, or date (default: title)
+            category: Optional category filter (case-insensitive)
+            sort_by: Sort order - "title", "category", or "date" (default: "title")
             
         Returns:
-            Structured list of documents with categories and descriptions
+            JSON with structured list of documents grouped by categories
         """
         try:
             logger.info(f"listDoc invoked with project: {project}, category: {category}, sort_by: {sort_by}")
+            
+            # Validate sort_by parameter
+            valid_sort_options = ["title", "category", "date"]
+            if sort_by not in valid_sort_options:
+                sort_by = "title"
+                logger.warning(f"Invalid sort_by parameter, defaulting to 'title'")
             
             # Use provided project or default to current project
             list_project = project or project_name
