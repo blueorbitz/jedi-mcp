@@ -85,13 +85,13 @@ This implementation plan transforms the existing Jedi MCP system into a vector-e
   - **Property 3: Comprehensive Document Loading**
   - **Validates: Requirements 4.1, 4.3, 4.4**
 
-- [ ] 7. Implement listDoc MCP tool
-  - [ ] 7.1 Create documentation topic listing functionality
+- [x] 7. Implement listDoc MCP tool
+  - [x] 7.1 Create documentation topic listing functionality
     - Return structured list of all available topics and categories
     - Include topic names, descriptions, document counts, and hierarchies
     - _Requirements: 5.1, 5.2_
 
-  - [ ] 7.2 Add filtering and organization capabilities
+  - [x] 7.2 Add filtering and organization capabilities
     - Support filtering by project, category, or content type
     - Implement clear navigation structure and grouping
     - _Requirements: 5.2, 5.4_
@@ -100,7 +100,7 @@ This implementation plan transforms the existing Jedi MCP system into a vector-e
   - **Property 4: Document Listing Format**
   - **Validates: Requirements 5.2, 5.4**
 
-- [ ] 8. Update MCP server to use new vector-enabled tools
+- [-] 8. Update MCP server to use new vector-enabled tools
   - [ ] 8.1 Replace existing content group tools with new vector tools
     - Remove individual content group tool registration
     - Register searchDoc, loadDoc, and listDoc tools
