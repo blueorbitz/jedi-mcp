@@ -11,7 +11,8 @@ from jedi_mcp.mcp_server import (
     create_mcp_server
 )
 from jedi_mcp.database import DatabaseManager
-from jedi_mcp.models import ContentGroup, PageContent
+from jedi_mcp.vector_database import VectorDatabaseManager
+from jedi_mcp.models import ContentGroup, PageContent, EmbeddingConfig
 
 
 class TestToolNameSanitization:
@@ -113,11 +114,12 @@ class TestMCPServerCreation:
     @pytest.fixture
     def db_with_content(self, temp_db):
         """Create a database with test content."""
-        db_manager = DatabaseManager(temp_db)
+        db_manager = VectorDatabaseManager(temp_db)
         project_name = "test-project"
         
-        # Initialize schema
-        db_manager.initialize_schema(project_name)
+        # Initialize vector schema with default embedding config
+        embedding_config = EmbeddingConfig()
+        db_manager.initialize_vector_schema(project_name, embedding_config)
         
         # Add test content groups
         groups = [
@@ -198,9 +200,10 @@ class TestMCPServerCreation:
     
     def test_create_server_nonexistent_project(self, temp_db):
         """Test creating server with nonexistent project still works with vector search tools."""
-        db_manager = DatabaseManager(temp_db)
-        # Initialize schema first
-        db_manager.initialize_schema("nonexistent-project")
+        db_manager = VectorDatabaseManager(temp_db)
+        # Initialize vector schema with default embedding config
+        embedding_config = EmbeddingConfig()
+        db_manager.initialize_vector_schema("nonexistent-project", embedding_config)
         
         # Should not raise error anymore since vector search tools are available
         mcp = create_mcp_server("nonexistent-project", db_manager=db_manager)

@@ -178,26 +178,39 @@ class VectorDatabaseManager(DatabaseManager):
         with self._get_connection() as conn:
             cursor = conn.cursor()
             
-            cursor.execute(
-                """
-                SELECT embedding_model, embedding_dimension
-                FROM projects
-                WHERE name = ?
-                """,
-                (project_name,)
-            )
-            
-            row = cursor.fetchone()
-            if not row or not row[0]:
-                return None
-            
-            # Determine dimension based on model if not stored
-            dimension = row[1]
-            if not dimension:
-                dimension_map = {
-                    'all-MiniLM-L6-v2': 384,
-                    'Qwen3-Embedding-0.6B': 1024
-                }
+            try:
+                cursor.execute(
+                    """
+                    SELECT embedding_model, embedding_dimension
+                    FROM projects
+                    WHERE name = ?
+                    """,
+                    (project_name,)
+                )
+                
+                row = cursor.fetchone()
+                if not row or not row[0]:
+                    return None
+                
+                # Determine dimension based on model if not stored
+                dimension = row[1]
+                if not dimension:
+                    dimension_map = {
+                        'all-MiniLM-L6-v2': 384,
+                        'Qwen3-Embedding-0.6B': 1024
+                    }
+                    dimension = dimension_map.get(row[0], 384)
+                
+                return EmbeddingConfig(
+                    provider="sentence-transformers",
+                    model=row[0],
+                    dimension=dimension
+                )
+            except sqlite3.OperationalError as e:
+                if "no such column: embedding_model" in str(e):
+                    # This is an older database without vector capabilities
+                    return None
+                raise
                 dimension = dimension_map.get(row[0], 384)
             
             return EmbeddingConfig(
@@ -556,40 +569,46 @@ class VectorDatabaseManager(DatabaseManager):
         with self._get_connection() as conn:
             cursor = conn.cursor()
             
-            cursor.execute(
-                """
-                SELECT 
-                    de.slug,
-                    de.title,
-                    de.category,
-                    de.summary_text,
-                    COUNT(se.section_id) as section_count,
-                    de.created_at
-                FROM document_embeddings de
-                JOIN projects p ON de.project_id = p.id
-                LEFT JOIN section_embeddings se ON de.slug = se.document_slug
-                WHERE p.name = ?
-                GROUP BY de.slug, de.title, de.category, de.summary_text, de.created_at
-                ORDER BY de.created_at DESC
-                """,
-                (project_name,)
-            )
-            
-            documents = []
-            for row in cursor.fetchall():
-                # Create description from summary
-                description = row[3][:100] + "..." if len(row[3]) > 100 else row[3]
+            try:
+                cursor.execute(
+                    """
+                    SELECT 
+                        de.slug,
+                        de.title,
+                        de.category,
+                        de.summary_text,
+                        COUNT(se.section_id) as section_count,
+                        de.created_at
+                    FROM document_embeddings de
+                    JOIN projects p ON de.project_id = p.id
+                    LEFT JOIN section_embeddings se ON de.slug = se.document_slug
+                    WHERE p.name = ?
+                    GROUP BY de.slug, de.title, de.category, de.summary_text, de.created_at
+                    ORDER BY de.created_at DESC
+                    """,
+                    (project_name,)
+                )
                 
-                documents.append(DocumentMetadata(
-                    slug=row[0],
-                    title=row[1],
-                    category=row[2] or "General",
-                    description=description,
-                    document_count=row[4],  # Actually section count
-                    last_updated=row[5]
-                ))
-            
-            return documents
+                documents = []
+                for row in cursor.fetchall():
+                    # Create description from summary
+                    description = row[3][:100] + "..." if len(row[3]) > 100 else row[3]
+                    
+                    documents.append(DocumentMetadata(
+                        slug=row[0],
+                        title=row[1],
+                        category=row[2] or "General",
+                        description=description,
+                        document_count=row[4],  # Actually section count
+                        last_updated=row[5]
+                    ))
+                
+                return documents
+            except sqlite3.OperationalError as e:
+                if "no such table: document_embeddings" in str(e):
+                    # This is an older database without vector capabilities
+                    return []
+                raise
     
     def _normalize_vector(self, vector: List[float]) -> List[float]:
         """Normalize a vector to unit length."""
