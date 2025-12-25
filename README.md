@@ -246,6 +246,9 @@ To use with Kiro, add to `.kiro/settings/mcp.json`:
     "jedi-mcp": {
       "command": "uvx",
       "args": ["--from", "/path/to/jedi-mcp", "jedi-mcp", "serve", "--project", "example-docs"],
+      "env": {
+        "PYTHONIOENCODING": "utf-8"
+      },
       "disabled": false,
       "autoApprove": []
     }
