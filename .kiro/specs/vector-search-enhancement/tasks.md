@@ -49,7 +49,7 @@ This implementation plan transforms the existing Jedi MCP system into a vector-e
   - **Property 1: Summary Generation with Keywords and Sections**
   - **Validates: Requirements 2.1, 2.2, 2.3**
 
-- [ ] 4. Checkpoint - Ensure vector infrastructure tests pass
+- [x] 4. Checkpoint - Ensure vector infrastructure tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 5. Implement searchDoc MCP tool
