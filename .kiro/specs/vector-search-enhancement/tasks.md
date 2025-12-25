@@ -33,14 +33,14 @@ This implementation plan transforms the existing Jedi MCP system into a vector-e
   - **Property 6: Vector Database Storage and Search**
   - **Validates: Requirements 1.2, 1.3**
 
-- [ ] 3. Enhance content processing for vector search
-  - [ ] 3.1 Extend ContentProcessor with vector-optimized summary generation
+- [x] 3. Enhance content processing for vector search
+  - [x] 3.1 Extend ContentProcessor with vector-optimized summary generation
     - Implement keyword extraction and integration
     - Add document section breakdown with unique identifiers
     - Create deduplication while preserving context
     - _Requirements: 2.1, 2.2, 2.3_
 
-  - [ ] 3.2 Integrate embedding generation into content processing pipeline
+  - [x] 3.2 Integrate embedding generation into content processing pipeline
     - Generate embeddings for document summaries and sections
     - Store embeddings with proper metadata and relationships
     - _Requirements: 1.2, 6.1, 6.2_
