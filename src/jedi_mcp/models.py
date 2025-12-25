@@ -66,7 +66,7 @@ class EmbeddingConfig:
         # Determine dimension based on model
         dimension_map = {
             'all-MiniLM-L6-v2': 384,
-            'Qwen3-Embedding-0.6B': 1024
+            'Qwen/Qwen3-Embedding-0.6B': 1024
         }
         dimension = dimension_map.get(model, 384)
         

@@ -18,7 +18,7 @@ This implementation plan transforms the existing Jedi MCP system into a vector-e
 
 - [x] 2. Implement embedding generation system
   - [x] 2.1 Create EmbeddingGenerator class with sentence-transformers support
-    - Support all-MiniLM-L6-v2 and Qwen3-Embedding-0.6B models
+    - Support all-MiniLM-L6-v2 and Qwen/Qwen3-Embedding-0.6B models
     - Implement batch processing and dynamic dimension handling
     - Add environment variable configuration loading
     - _Requirements: 2.1, 2.2_

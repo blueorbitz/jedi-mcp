@@ -134,12 +134,12 @@ class EmbeddingGenerator:
 
 **Supported Providers**:
 - **Sentence Transformers**: `all-MiniLM-L6-v2` (384 dimensions, free, local processing, recommended default)
-- **Sentence Transformers**: `Qwen3-Embedding-0.6B` (1024 dimensions, free, local processing)
+- **Sentence Transformers**: `Qwen/Qwen3-Embedding-0.6B` (1024 dimensions, free, local processing)
 
 **Environment Configuration**:
 ```bash
 # .env file configuration during generation phase
-JEDI_EMBEDDING_MODEL=all-MiniLM-L6-v2  # or Qwen3-Embedding-0.6B
+JEDI_EMBEDDING_MODEL=all-MiniLM-L6-v2  # or Qwen/Qwen3-Embedding-0.6B
 ```
 
 **Configuration**:

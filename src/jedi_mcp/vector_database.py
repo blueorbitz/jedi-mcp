@@ -197,7 +197,7 @@ class VectorDatabaseManager(DatabaseManager):
                 if not dimension:
                     dimension_map = {
                         'all-MiniLM-L6-v2': 384,
-                        'Qwen3-Embedding-0.6B': 1024
+                        'Qwen/Qwen3-Embedding-0.6B': 1024
                     }
                     dimension = dimension_map.get(row[0], 384)
                 

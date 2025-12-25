@@ -4,6 +4,9 @@ This document provides steering guidance for AI agents working on the Jedi-MCP c
 
 ## Project Setup and Environment
 
+### Rule
+- Never read or edit the `.env`. Guide user what to change instead.
+
 ### Virtual Environment Management
 ```bash
 # ALWAYS activate the virtual environment first

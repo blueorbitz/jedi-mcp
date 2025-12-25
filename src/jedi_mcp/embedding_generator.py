@@ -25,7 +25,7 @@ class EmbeddingGenerator:
         self._model: Optional[SentenceTransformer] = None
         
         # Validate model support
-        supported_models = {'all-MiniLM-L6-v2', 'Qwen3-Embedding-0.6B'}
+        supported_models = {'all-MiniLM-L6-v2', 'Qwen/Qwen3-Embedding-0.6B'}
         if self.config.model not in supported_models:
             raise ValueError(f"Unsupported model: {self.config.model}. Supported models: {supported_models}")
     
