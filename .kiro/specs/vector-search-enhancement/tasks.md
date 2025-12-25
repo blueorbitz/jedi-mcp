@@ -135,14 +135,14 @@ This implementation plan transforms the existing Jedi MCP system into a vector-e
   - Test embedding model validation and storage
   - Test vector-enabled server initialization
 
-- [ ] 10. Add required dependencies and configuration
-  - [ ] 10.1 Update pyproject.toml with new dependencies
+- [x] 10. Add required dependencies and configuration
+  - [x] 10.1 Update pyproject.toml with new dependencies
     - Add sqlite-vec Python bindings
     - Add sentence-transformers library
     - Update development dependencies for property testing
     - _Requirements: 1.1, 2.1_
 
-  - [ ] 10.2 Create example .env configuration file
+  - [x] 10.2 Create example .env configuration file
     - Document available embedding models and their dimensions
     - Provide clear configuration examples
     - Add configuration validation and error messages
