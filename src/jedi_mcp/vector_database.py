@@ -505,6 +505,44 @@ class VectorDatabaseManager(DatabaseManager):
                 sections=sections
             )
     
+    def get_similar_slugs(self, slug: str, limit: int = 5) -> List[str]:
+        """
+        Get similar slugs for suggestion when a slug is not found.
+        
+        Args:
+            slug: The slug that was not found
+            limit: Maximum number of suggestions to return
+            
+        Returns:
+            List of similar slugs
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Simple similarity search using LIKE patterns
+            # This could be enhanced with more sophisticated string similarity
+            slug_lower = slug.lower()
+            
+            cursor.execute(
+                """
+                SELECT slug
+                FROM document_embeddings
+                WHERE LOWER(slug) LIKE ? OR LOWER(title) LIKE ?
+                ORDER BY 
+                    CASE 
+                        WHEN LOWER(slug) = ? THEN 1
+                        WHEN LOWER(slug) LIKE ? THEN 2
+                        WHEN LOWER(title) LIKE ? THEN 3
+                        ELSE 4
+                    END
+                LIMIT ?
+                """,
+                (f"%{slug_lower}%", f"%{slug_lower}%", slug_lower, 
+                 f"{slug_lower}%", f"%{slug_lower}%", limit)
+            )
+            
+            return [row[0] for row in cursor.fetchall()]
+    
     def list_all_documents(self, project_name: str) -> List[DocumentMetadata]:
         """
         List all documents for a project.

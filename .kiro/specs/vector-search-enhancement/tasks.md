@@ -69,14 +69,14 @@ This implementation plan transforms the existing Jedi MCP system into a vector-e
   - **Property 2: Comprehensive Search Functionality**
   - **Validates: Requirements 3.1, 3.2, 3.4**
 
-- [ ] 6. Implement loadDoc MCP tool
-  - [ ] 6.1 Create document loading by slug functionality
+- [x] 6. Implement loadDoc MCP tool
+  - [x] 6.1 Create document loading by slug functionality
     - Implement slug-based document retrieval
     - Add metadata inclusion (source URLs, dates, categories)
     - Support batch loading of multiple documents
     - _Requirements: 4.1, 4.3, 4.4_
 
-  - [ ] 6.2 Implement error handling for invalid slugs
+  - [x] 6.2 Implement error handling for invalid slugs
     - Return appropriate error messages for invalid slugs
     - Provide suggested alternatives when possible
     - _Requirements: 4.2_

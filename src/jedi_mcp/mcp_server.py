@@ -348,7 +348,7 @@ def register_search_tools(
     
     @mcp.tool(
         name="loadDoc",
-        description="Load full document content by slug identifier"
+        description="Load full document content by slug identifier(s)"
     )
     def load_document(
         slug: str,
@@ -356,15 +356,15 @@ def register_search_tools(
         include_metadata: bool = True
     ) -> str:
         """
-        Load complete document summary by slug identifier.
+        Load complete document summary by slug identifier(s).
         
         Args:
-            slug: Document slug from search results
+            slug: Document slug from search results, or comma-separated slugs for batch loading
             include_sections: Include section breakdown (default: True)
             include_metadata: Include source URLs and metadata (default: True)
             
         Returns:
-            Complete markdown document with metadata and sections
+            Complete markdown document(s) with metadata and sections
         """
         try:
             logger.info(f"loadDoc invoked with slug: '{slug}'")
@@ -375,50 +375,136 @@ def register_search_tools(
                     "error": "Document slug cannot be empty"
                 })
             
-            # Retrieve document
-            document = db_manager.get_document_by_slug(slug.strip())
+            # Handle batch loading - split by comma and clean up
+            slugs = [s.strip() for s in slug.split(',') if s.strip()]
             
-            if not document:
+            # Validate slugs format (basic validation)
+            invalid_slugs = []
+            valid_slugs = []
+            
+            for s in slugs:
+                # Basic slug validation - should contain alphanumeric, hyphens, underscores
+                if not s or len(s) > 200 or not all(c.isalnum() or c in '-_.' for c in s):
+                    invalid_slugs.append(s)
+                else:
+                    valid_slugs.append(s)
+            
+            if invalid_slugs:
                 return json.dumps({
-                    "error": f"Document with slug '{slug}' not found",
+                    "error": f"Invalid slug format(s): {', '.join(invalid_slugs)}",
                     "suggestions": [
-                        "Check the slug spelling",
-                        "Use searchDoc to find available documents",
-                        "Use listDoc to browse all available documents"
+                        "Slugs should contain only letters, numbers, hyphens, underscores, and dots",
+                        "Slugs should not be empty or exceed 200 characters",
+                        "Use searchDoc to find valid document slugs"
                     ]
                 })
             
-            # Format response
-            response = {
-                "slug": document.slug,
-                "title": document.title,
-                "category": document.category,
-                "full_summary": document.full_summary
-            }
+            if not valid_slugs:
+                return json.dumps({
+                    "error": "No valid slugs provided"
+                })
             
-            if include_metadata:
-                response["metadata"] = {
-                    "source_urls": document.source_urls,
-                    "created_at": document.created_at,
-                    "category": document.category
+            if len(valid_slugs) == 1:
+                # Single document loading
+                document = db_manager.get_document_by_slug(valid_slugs[0])
+                
+                if not document:
+                    # Try to find similar slugs for suggestions
+                    suggestions = db_manager.get_similar_slugs(valid_slugs[0])
+                    return json.dumps({
+                        "error": f"Document with slug '{valid_slugs[0]}' not found",
+                        "suggestions": [
+                            "Check the slug spelling",
+                            "Use searchDoc to find available documents",
+                            "Use listDoc to browse all available documents"
+                        ] + ([f"Did you mean: {', '.join(suggestions[:3])}?"] if suggestions else [])
+                    })
+                
+                # Format single document response
+                response = {
+                    "slug": document.slug,
+                    "title": document.title,
+                    "category": document.category,
+                    "full_summary": document.full_summary
                 }
-            
-            if include_sections and document.sections:
-                response["sections"] = [
-                    {
-                        "section_id": section.section_id,
-                        "title": section.title,
-                        "content": section.content,
-                        "keywords": section.keywords
+                
+                if include_metadata:
+                    response["metadata"] = {
+                        "source_urls": document.source_urls,
+                        "created_at": document.created_at,
+                        "category": document.category
                     }
-                    for section in document.sections
-                ]
+                
+                if include_sections and document.sections:
+                    response["sections"] = [
+                        {
+                            "section_id": section.section_id,
+                            "title": section.title,
+                            "content": section.content,
+                            "keywords": section.keywords
+                        }
+                        for section in document.sections
+                    ]
+                
+                logger.info(f"Successfully loaded document: {document.title}")
+                return json.dumps(response, indent=2)
             
-            logger.info(f"Successfully loaded document: {document.title}")
-            return json.dumps(response, indent=2)
+            else:
+                # Batch document loading
+                logger.info(f"Batch loading {len(valid_slugs)} documents")
+                
+                documents = []
+                not_found = []
+                
+                for doc_slug in valid_slugs:
+                    document = db_manager.get_document_by_slug(doc_slug)
+                    if document:
+                        doc_data = {
+                            "slug": document.slug,
+                            "title": document.title,
+                            "category": document.category,
+                            "full_summary": document.full_summary
+                        }
+                        
+                        if include_metadata:
+                            doc_data["metadata"] = {
+                                "source_urls": document.source_urls,
+                                "created_at": document.created_at,
+                                "category": document.category
+                            }
+                        
+                        if include_sections and document.sections:
+                            doc_data["sections"] = [
+                                {
+                                    "section_id": section.section_id,
+                                    "title": section.title,
+                                    "content": section.content,
+                                    "keywords": section.keywords
+                                }
+                                for section in document.sections
+                            ]
+                        
+                        documents.append(doc_data)
+                    else:
+                        not_found.append(doc_slug)
+                
+                # Format batch response
+                response = {
+                    "batch_loading": True,
+                    "requested_count": len(valid_slugs),
+                    "found_count": len(documents),
+                    "documents": documents
+                }
+                
+                if not_found:
+                    response["not_found"] = not_found
+                    response["warnings"] = [f"Documents not found: {', '.join(not_found)}"]
+                
+                logger.info(f"Successfully loaded {len(documents)} out of {len(valid_slugs)} requested documents")
+                return json.dumps(response, indent=2)
             
         except Exception as e:
-            error_msg = f"Failed to load document: {str(e)}"
+            error_msg = f"Failed to load document(s): {str(e)}"
             logger.error(error_msg, exc_info=True)
             return json.dumps({
                 "error": error_msg
