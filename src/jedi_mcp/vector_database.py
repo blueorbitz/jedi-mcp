@@ -1,6 +1,7 @@
 """Vector database management extending SQLite with vector search capabilities."""
 
 import sqlite3
+import sqlite_vec
 import json
 import logging
 from pathlib import Path
@@ -40,21 +41,10 @@ class VectorDatabaseManager(DatabaseManager):
         if not self._vec_extension_loaded:
             try:
                 conn.enable_load_extension(True)
-                # Try different possible names for the sqlite-vec extension
-                extension_names = ["vec0", "sqlite_vec", "vector"]
-                for ext_name in extension_names:
-                    try:
-                        conn.load_extension(ext_name)
-                        self._vec_extension_loaded = True
-                        logger.info(f"Loaded sqlite-vec extension '{ext_name}' successfully")
-                        break
-                    except Exception:
-                        continue
-                
-                if not self._vec_extension_loaded:
-                    logger.warning("sqlite-vec extension not available, using fallback similarity search")
+                sqlite_vec.load(conn)
+
             except Exception as e:
-                logger.warning(f"Failed to enable extension loading: {e}")
+                logger.warning(f"Failed to enable sqlite-vec extension loading: {e}")
         
         try:
             yield conn
