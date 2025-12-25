@@ -117,14 +117,14 @@ This implementation plan transforms the existing Jedi MCP system into a vector-e
   - **Property 5: Data Organization and Relationships**
   - **Validates: Requirements 6.1, 6.2**
 
-- [ ] 9. Update CLI commands for vector search support
-  - [ ] 9.1 Enhance generate command with embedding configuration
+- [x] 9. Update CLI commands for vector search support
+  - [x] 9.1 Enhance generate command with embedding configuration
     - Add environment variable reading for embedding model selection
     - Store embedding configuration in database during generation
     - Update content processing pipeline to include vector generation
     - _Requirements: 1.1, 1.2, 2.1_
 
-  - [ ] 9.2 Update serve command for vector-enabled MCP server
+  - [x] 9.2 Update serve command for vector-enabled MCP server
     - Load project embedding configuration from database
     - Initialize vector-enabled MCP server with proper tools
     - Ensure embedding model consistency between generation and serving

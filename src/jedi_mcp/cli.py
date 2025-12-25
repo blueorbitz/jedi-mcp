@@ -12,11 +12,12 @@ import click
 import httpx
 from bs4 import BeautifulSoup
 
-from .models import CrawlConfig, GenerationResult
+from .models import CrawlConfig, GenerationResult, EmbeddingConfig
 from .database import DatabaseManager
+from .vector_database import VectorDatabaseManager
 from .navigation_extractor import extract_navigation_links, extract_navigation_links_async
 from .crawler import crawl_pages
-from .content_processor import process_content
+from .content_processor import process_content, process_content_with_embeddings
 from .mcp_server import run_mcp_server
 
 
@@ -254,10 +255,14 @@ async def generate_mcp_server_async(
         GenerationResult containing status and output path
     """
     try:
-        # Initialize database
-        click.echo("📦 Initializing database...")
-        db_manager = DatabaseManager(db_path)
-        db_manager.initialize_schema(name)
+        # Load embedding configuration from environment
+        embedding_config = EmbeddingConfig.from_env()
+        click.echo(f"🔧 Using embedding model: {embedding_config.model} ({embedding_config.dimension} dimensions)")
+        
+        # Initialize vector database
+        click.echo("📦 Initializing vector database...")
+        db_manager = VectorDatabaseManager(db_path)
+        db_manager.initialize_vector_schema(name, embedding_config)
         
         # Step 1: Extract navigation links
         click.echo(f"🔍 Extracting navigation links from {url}...")
@@ -334,9 +339,9 @@ async def generate_mcp_server_async(
         
         click.echo(f"✓ Successfully crawled {len(pages)} pages")
         
-        # Step 3: Process content and group
-        click.echo("🤖 Processing content and generating summaries (this may take a minute)...")
-        content_groups = process_content(pages)
+        # Step 3: Process content with vector embeddings
+        click.echo("🤖 Processing content and generating embeddings (this may take a few minutes)...")
+        content_groups = process_content_with_embeddings(pages, name, db_manager, embedding_config)
         
         if not content_groups:
             return GenerationResult(
@@ -346,10 +351,10 @@ async def generate_mcp_server_async(
                 project_name=name
             )
         
-        click.echo(f"✓ Created {len(content_groups)} content groups")
+        click.echo(f"✓ Created {len(content_groups)} content groups with vector embeddings")
         
-        # Step 4: Store in database
-        click.echo("💾 Storing content in database...")
+        # Step 4: Store content groups in database (for backward compatibility)
+        click.echo("💾 Storing content groups in database...")
         for group in content_groups:
             db_manager.store_content_group(name, group, url)
         
@@ -357,7 +362,7 @@ async def generate_mcp_server_async(
         
         return GenerationResult(
             success=True,
-            message=f"Successfully generated MCP server for '{name}'",
+            message=f"Successfully generated vector-enabled MCP server for '{name}'",
             database_path=str(db_path),
             project_name=name
         )
@@ -478,6 +483,7 @@ def generate(url: str, name: str, rate_limit: float, max_retries: int, timeout: 
         click.echo("=" * 60)
         click.echo(f"✅ {result.message}")
         click.echo(f"📁 Database location: {result.database_path}")
+        click.echo(f"🔍 Vector search enabled with semantic similarity")
         click.echo()
         click.echo("To start the MCP server, run:")
         click.echo(f"  jedi-mcp serve --project {result.project_name}")
@@ -602,23 +608,42 @@ def serve(project: str, db_path: Path, transport: str, host: str, port: int):
         click.echo("\nPlease generate a project first using 'jedi-mcp generate'.", err=True)
         sys.exit(1)
     
-    # Validate project exists
-    db_manager = DatabaseManager(db_path)
+    # Initialize vector database manager for validation
+    db_manager = VectorDatabaseManager(db_path)
     
     try:
-        content_groups = db_manager.get_all_content_groups(project)
+        # Check if project exists and get embedding configuration
+        embedding_config = db_manager.get_project_embedding_config(project)
         
-        if not content_groups:
-            click.echo(
-                f"❌ Error: Project '{project}' not found in database at {db_path}",
-                err=True
-            )
-            click.echo("\nPlease generate the project first using 'jedi-mcp generate'.", err=True)
-            sys.exit(1)
+        if embedding_config:
+            click.echo(f"🔧 Project embedding configuration:")
+            click.echo(f"   Model: {embedding_config.model}")
+            click.echo(f"   Dimension: {embedding_config.dimension}")
+            click.echo(f"   Provider: {embedding_config.provider}")
+        else:
+            click.echo(f"⚠️  No embedding configuration found for project '{project}'")
+            click.echo(f"   This project may have been generated without vector search capabilities")
         
-        click.echo(f"🚀 Starting MCP server for project '{project}'")
+        # Check for vector documents
+        vector_documents = db_manager.list_all_documents(project)
+        if vector_documents:
+            click.echo(f"🔍 Vector search enabled with {len(vector_documents)} searchable documents")
+        else:
+            # Fall back to checking legacy content groups
+            content_groups = db_manager.get_all_content_groups(project)
+            if not content_groups:
+                click.echo(
+                    f"❌ Error: Project '{project}' not found in database at {db_path}",
+                    err=True
+                )
+                click.echo("\nPlease generate the project first using 'jedi-mcp generate'.", err=True)
+                sys.exit(1)
+            else:
+                click.echo(f"📚 Found {len(content_groups)} legacy content groups")
+                click.echo(f"   Consider regenerating with 'jedi-mcp generate' to enable vector search")
+        
+        click.echo(f"🚀 Starting vector-enabled MCP server for project '{project}'")
         click.echo(f"📁 Database: {db_path}")
-        click.echo(f"🔧 Loaded {len(content_groups)} content groups")
         click.echo(f"🚦 Transport: {transport}")
         
         if transport == 'sse':
@@ -627,6 +652,15 @@ def serve(project: str, db_path: Path, transport: str, host: str, port: int):
             click.echo("Connect to this server using:")
             click.echo(f"  - MCP Inspector: npx @modelcontextprotocol/inspector")
             click.echo(f"  - Then connect to: http://{host}:{port}/sse")
+        
+        click.echo()
+        click.echo("Available tools:")
+        if vector_documents:
+            click.echo("  - searchDoc: Semantic search across documentation")
+            click.echo("  - loadDoc: Load complete documents by slug")
+            click.echo("  - listDoc: Browse available documentation topics")
+        else:
+            click.echo("  - Legacy content group tools (consider regenerating for vector search)")
         
         click.echo()
         click.echo("Server is running. Press Ctrl+C to stop.")
