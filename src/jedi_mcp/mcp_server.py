@@ -238,8 +238,10 @@ def create_mcp_server(
         vector_db_manager = VectorDatabaseManager(db_manager.db_path)
         db_manager = vector_db_manager
     
-    # Create FastMCP server
-    mcp = FastMCP(f"jedi-mcp-{project_name}")
+    # Create FastMCP server with resources and prompts disabled
+    mcp = FastMCP(
+        f"jedi-mcp-{project_name}",
+    )
     
     logger.info(f"Initializing MCP server for project: {project_name}")
     
@@ -398,7 +400,6 @@ def register_search_tools(
     )
     def search_documents(
         query: str,
-        project: Optional[str] = None,
         category: Optional[str] = None,
         limit: int = 5
     ) -> str:
@@ -407,7 +408,6 @@ def register_search_tools(
         
         Args:
             query: Natural language search query (required, non-empty)
-            project: Optional project name filter (defaults to current project)
             category: Optional category filter  
             limit: Maximum number of results (default: 5, range: 1-20)
             
@@ -415,7 +415,7 @@ def register_search_tools(
             JSON string with search results including slugs, titles, scores, and previews
         """
         try:
-            logger.info(f"searchDoc invoked with query: '{query}', project: {project}, category: {category}")
+            logger.info(f"searchDoc invoked with query: '{query}', category: {category}")
             
             # Validate inputs
             if not query or not query.strip():
@@ -429,8 +429,8 @@ def register_search_tools(
                 limit = 5
             limit = min(max(1, limit), 20)
             
-            # Use provided project or default to current project
-            search_project = project or project_name
+            # Use the project defined when starting the server
+            search_project = project_name
             
             # Perform semantic search if embedding generator is available
             results = []
@@ -486,7 +486,6 @@ def register_search_tools(
             # Format response
             response = {
                 "query": query,
-                "project": search_project,
                 "category": category,
                 "total_results": len(results),
                 "results": results
@@ -683,7 +682,6 @@ def register_search_tools(
         description="List all available documentation topics and categories with metadata. Supports filtering and sorting options."
     )
     def list_documents(
-        project: Optional[str] = None,
         category: Optional[str] = None,
         sort_by: str = "title"
     ) -> str:
@@ -691,7 +689,6 @@ def register_search_tools(
         List all available documentation topics with metadata.
         
         Args:
-            project: Optional project name filter (defaults to current project)
             category: Optional category filter (case-insensitive)
             sort_by: Sort order - "title", "category", or "date" (default: "title")
             
@@ -699,7 +696,7 @@ def register_search_tools(
             JSON with structured list of documents grouped by categories
         """
         try:
-            logger.info(f"listDoc invoked with project: {project}, category: {category}, sort_by: {sort_by}")
+            logger.info(f"listDoc invoked with category: {category}, sort_by: {sort_by}")
             
             # Validate sort_by parameter
             valid_sort_options = ["title", "category", "date"]
@@ -707,8 +704,8 @@ def register_search_tools(
                 sort_by = "title"
                 logger.warning(f"Invalid sort_by parameter, defaulting to 'title'")
             
-            # Use provided project or default to current project
-            list_project = project or project_name
+            # Use the project defined when starting the server
+            list_project = project_name
             
             # Get all documents for the project
             documents = db_manager.list_all_documents(list_project)
@@ -741,7 +738,6 @@ def register_search_tools(
             
             # Format response
             response = {
-                "project": list_project,
                 "category_filter": category,
                 "sort_by": sort_by,
                 "total_documents": len(documents),
@@ -761,11 +757,10 @@ def register_search_tools(
             response["categories"].sort(key=lambda x: x["name"])
             
             if not documents:
-                response["message"] = f"No documents found for project '{list_project}'"
+                response["message"] = f"No documents found"
                 if category:
                     response["message"] += f" in category '{category}'"
                 response["suggestions"] = [
-                    "Check if the project name is correct",
                     "Try without category filter",
                     "Ensure documents have been generated for this project"
                 ]
