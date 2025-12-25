@@ -52,14 +52,14 @@ This implementation plan transforms the existing Jedi MCP system into a vector-e
 - [x] 4. Checkpoint - Ensure vector infrastructure tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 5. Implement searchDoc MCP tool
-  - [ ] 5.1 Create semantic search functionality
+- [x] 5. Implement searchDoc MCP tool
+  - [x] 5.1 Create semantic search functionality
     - Implement vector similarity search with query embedding generation
     - Add result ranking and relevance scoring
     - Support both semantic and hybrid keyword-vector search
     - _Requirements: 3.1, 3.2, 3.4_
 
-  - [ ] 5.2 Implement search result formatting and filtering
+  - [x] 5.2 Implement search result formatting and filtering
     - Return structured results with slugs, titles, scores, and previews
     - Add project and category filtering capabilities
     - Handle edge cases like no results found

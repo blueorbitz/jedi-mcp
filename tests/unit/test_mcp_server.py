@@ -170,10 +170,18 @@ class TestMCPServerCreation:
         # Get registered tools - this is a dict in FastMCP
         tools_dict = mcp._tool_manager._tools
         
-        assert len(tools_dict) == 2
+        # Should have 2 legacy content group tools + 3 vector search tools = 5 total
+        assert len(tools_dict) == 5
         tool_names = list(tools_dict.keys())
+        
+        # Legacy content group tools
         assert "getting_started" in tool_names
         assert "api_reference" in tool_names
+        
+        # New vector search tools
+        assert "searchDoc" in tool_names
+        assert "loadDoc" in tool_names
+        assert "listDoc" in tool_names
     
     def test_create_server_tool_descriptions(self, db_with_content):
         """Test that tool descriptions are generated correctly."""
@@ -189,13 +197,21 @@ class TestMCPServerCreation:
             assert "#" not in tool.description  # Headers should be removed
     
     def test_create_server_nonexistent_project(self, temp_db):
-        """Test creating server with nonexistent project raises error."""
+        """Test creating server with nonexistent project still works with vector search tools."""
         db_manager = DatabaseManager(temp_db)
         # Initialize schema first
         db_manager.initialize_schema("nonexistent-project")
         
-        with pytest.raises(ValueError, match="not found or has no content groups"):
-            create_mcp_server("nonexistent-project", db_manager=db_manager)
+        # Should not raise error anymore since vector search tools are available
+        mcp = create_mcp_server("nonexistent-project", db_manager=db_manager)
+        
+        # Should have 3 vector search tools even without content groups
+        tools_dict = mcp._tool_manager._tools
+        assert len(tools_dict) == 3
+        tool_names = list(tools_dict.keys())
+        assert "searchDoc" in tool_names
+        assert "loadDoc" in tool_names
+        assert "listDoc" in tool_names
     
     def test_create_server_tool_invocation(self, db_with_content):
         """Test that tools can be invoked and return markdown."""
